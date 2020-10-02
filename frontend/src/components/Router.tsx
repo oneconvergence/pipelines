@@ -36,7 +36,7 @@ import PipelineDetails from '../pages/PipelineDetails';
 import PipelineList from '../pages/PipelineList';
 import RecurringRunDetails from '../pages/RecurringRunDetails';
 import RunDetails from '../pages/RunDetails';
-import SideNav from './SideNav';
+//import SideNav from './SideNav';
 import Snackbar, { SnackbarProps } from '@material-ui/core/Snackbar';
 import Toolbar, { ToolbarProps } from './Toolbar';
 import { Route, Switch, Redirect } from 'react-router-dom';
@@ -229,7 +229,7 @@ class RoutedPage extends React.Component<{ route?: RouteConfig }, RouteComponent
     };
   }
 
-  public render(): JSX.Element {
+  public render (): JSX.Element {
     const childProps = {
       toolbarProps: this.state.toolbarProps,
       updateBanner: this._updateBanner.bind(this),
@@ -309,7 +309,7 @@ class RoutedPage extends React.Component<{ route?: RouteConfig }, RouteComponent
     );
   }
 
-  private _updateDialog(dialogProps: DialogProps): void {
+  private _updateDialog (dialogProps: DialogProps): void {
     // Assuming components will want to open the dialog by defaut.
     if (dialogProps.open === undefined) {
       dialogProps.open = true;
@@ -317,7 +317,7 @@ class RoutedPage extends React.Component<{ route?: RouteConfig }, RouteComponent
     this.setState({ dialogProps });
   }
 
-  private _handleDialogClosed(onClick?: () => void): void {
+  private _handleDialogClosed (onClick?: () => void): void {
     this.setState({ dialogProps: { open: false } });
     if (onClick) {
       onClick();
@@ -327,22 +327,22 @@ class RoutedPage extends React.Component<{ route?: RouteConfig }, RouteComponent
     }
   }
 
-  private _updateToolbar(newToolbarProps: Partial<ToolbarProps>): void {
+  private _updateToolbar (newToolbarProps: Partial<ToolbarProps>): void {
     const toolbarProps = Object.assign(this.state.toolbarProps, newToolbarProps);
     this.setState({ toolbarProps });
   }
 
-  private _updateBanner(bannerProps: BannerProps): void {
+  private _updateBanner (bannerProps: BannerProps): void {
     this.setState({ bannerProps });
   }
 
-  private _updateSnackbar(snackbarProps: SnackbarProps): void {
+  private _updateSnackbar (snackbarProps: SnackbarProps): void {
     snackbarProps.autoHideDuration =
       snackbarProps.autoHideDuration || this.state.snackbarProps.autoHideDuration;
     this.setState({ snackbarProps });
   }
 
-  private _handleSnackbarClose(): void {
+  private _handleSnackbarClose (): void {
     this.setState({ snackbarProps: { open: false, message: '' } });
   }
 }
@@ -354,7 +354,7 @@ export default Router;
 const SideNavLayout: React.FC<{}> = ({ children }) => (
   <div className={commonCss.page}>
     <div className={commonCss.flexGrow}>
-      <Route render={({ ...props }) => <SideNav page={props.location.pathname} {...props} />} />
+      {/* <Route render={({ ...props }) => <SideNav page={props.location.pathname} {...props} />} />  */}
       {children}
     </div>
   </div>

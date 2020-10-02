@@ -67,6 +67,7 @@ import { HTMLViewerConfig } from '../components/viewers/HTMLViewer';
 import { GkeMetadata, GkeMetadataContext } from 'src/lib/GkeMetadata';
 
 enum SidePaneTab {
+  DKUBE,
   ARTIFACTS,
   INPUT_OUTPUT,
   VOLUMES,
@@ -101,19 +102,27 @@ interface GeneratedVisualization {
 interface RunDetailsState {
   allArtifactConfigs: AnnotatedConfig[];
   allowCustomVisualizations: boolean;
+  dkube: any;
   experiment?: ApiExperiment;
   generatedVisualizations: GeneratedVisualization[];
   isGeneratingVisualization: boolean;
+  jobid: string;
+  jobname: string;
+  jobtype: string;
+  loading: boolean;
   logsBannerAdditionalInfo: string;
   logsBannerMessage: string;
   logsBannerMode: Mode;
   graph?: dagre.graphlib.Graph;
   runFinished: boolean;
   runMetadata?: ApiRun;
+  platform: string;
   selectedTab: number;
   selectedNodeDetails: SelectedNodeDetails | null;
   sidepanelBusy: boolean;
   sidepanelSelectedTab: SidePaneTab;
+  stage: string;
+  user: string;
   workflow?: Workflow;
 }
 
@@ -151,16 +160,24 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
   public state: RunDetailsState = {
     allArtifactConfigs: [],
     allowCustomVisualizations: false,
+    dkube: null,
     generatedVisualizations: [],
+    jobid: '',
+    jobname: '',
+    jobtype: '',
     isGeneratingVisualization: false,
+    loading: false,
     logsBannerAdditionalInfo: '',
     logsBannerMessage: '',
     logsBannerMode: 'error',
+    platform: '',
     runFinished: false,
     selectedNodeDetails: null,
     selectedTab: 0,
     sidepanelBusy: false,
-    sidepanelSelectedTab: SidePaneTab.ARTIFACTS,
+    sidepanelSelectedTab: SidePaneTab.DKUBE,
+    stage: '',
+    user: '',
   };
 
   private readonly AUTO_REFRESH_INTERVAL = 5000;
@@ -177,8 +194,8 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
             this.state.runMetadata
               ? [this.state.runMetadata!.id!]
               : runIdFromParams
-              ? [runIdFromParams]
-              : [],
+                ? [runIdFromParams]
+                : [],
           true,
           () => this.retry(),
         )
@@ -187,8 +204,8 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
             this.state.runMetadata
               ? [this.state.runMetadata!.id!]
               : runIdFromParams
-              ? [runIdFromParams]
-              : [],
+                ? [runIdFromParams]
+                : [],
           true,
         )
         .terminateRun(
@@ -196,8 +213,8 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
             this.state.runMetadata
               ? [this.state.runMetadata!.id!]
               : runIdFromParams
-              ? [runIdFromParams]
-              : [],
+                ? [runIdFromParams]
+                : [],
           true,
           () => this.refresh(),
         )
@@ -240,7 +257,11 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     const visualizationCreatorConfig: VisualizationCreatorConfig = {
       allowCustomVisualizations,
       isBusy: isGeneratingVisualization,
-      onGenerate: (visualizationArguments: string, source: string, type: ApiVisualizationType) => {
+      onGenerate: (
+        visualizationArguments: string,
+        source: string,
+        type: ApiVisualizationType,
+      ) => {
         this._onGenerate(visualizationArguments, source, type);
       },
       type: PlotType.VISUALIZATION_CREATOR,
@@ -279,11 +300,21 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                         {!!selectedNodeDetails && (
                           <React.Fragment>
                             {!!selectedNodeDetails.phaseMessage && (
-                              <Banner mode='warning' message={selectedNodeDetails.phaseMessage} />
+                              <Banner
+                                mode='warning'
+                                message={selectedNodeDetails.phaseMessage}
+                              />
                             )}
                             <div className={commonCss.page}>
                               <MD2Tabs
-                                tabs={['Artifacts', 'Input/Output', 'Volumes', 'Manifest', 'Logs']}
+                                tabs={[
+                                  'DKube',
+                                  'Artifacts',
+                                  'Input/Output',
+                                  'Volumes',
+                                  'Manifest',
+                                  'Logs',
+                                ]}
                                 selectedTab={sidepanelSelectedTab}
                                 onSwitch={this._loadSidePaneTab.bind(this)}
                               />
@@ -292,6 +323,41 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                 data-testid='run-details-node-details'
                                 className={commonCss.page}
                               >
+                                {sidepanelSelectedTab === SidePaneTab.DKUBE && (
+                                  <div className={commonCss.page}>
+                                    {this.state.dkube && this.state.stage === 'training' && (
+                                      <iframe
+                                        src={
+                                          '/#/ds/jobs/runs/training/user/' +
+                                          this.state.user +
+                                          '/' +
+                                          this.state.jobname +
+                                          '/' +
+                                          this.state.jobid +
+                                          '?tab=summary&iframe=true'
+                                        }
+                                        style={{ height: '100vh' }}
+                                        title={'training'}
+                                      />
+                                    )}
+                                    {this.state.dkube &&
+                                      this.state.stage === 'preprocess' && (
+                                        <iframe
+                                          src={
+                                            '/#/ds/jobs/runs/preprocessing/user/' +
+                                            this.state.user +
+                                            '/' +
+                                            this.state.jobname +
+                                            '/' +
+                                            this.state.jobid +
+                                            '?tab=summary&iframe=true'
+                                          }
+                                          style={{ height: '100vh' }}
+                                          title={'preprocess'}
+                                        />
+                                      )}
+                                  </div>
+                                )}
                                 {sidepanelSelectedTab === SidePaneTab.ARTIFACTS &&
                                   this.state.selectedNodeDetails &&
                                   this.state.workflow && (
@@ -300,8 +366,8 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                       nodeStatus={
                                         this.state.workflow && this.state.workflow.status
                                           ? this.state.workflow.status.nodes[
-                                              this.state.selectedNodeDetails.id
-                                            ]
+                                          this.state.selectedNodeDetails.id
+                                          ]
                                           : undefined
                                       }
                                       visualizationCreatorConfig={visualizationCreatorConfig}
@@ -315,7 +381,10 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
 
                                 {sidepanelSelectedTab === SidePaneTab.INPUT_OUTPUT && (
                                   <div className={padding(20)}>
-                                    <DetailsTable title='Input parameters' fields={inputParams} />
+                                    <DetailsTable
+                                      title='Input parameters'
+                                      fields={inputParams}
+                                    />
 
                                     <DetailsTable
                                       title='Input artifacts'
@@ -323,7 +392,10 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                       valueComponent={MinioArtifactLink}
                                     />
 
-                                    <DetailsTable title='Output parameters' fields={outputParams} />
+                                    <DetailsTable
+                                      title='Output parameters'
+                                      fields={outputParams}
+                                    />
 
                                     <DetailsTable
                                       title='Output artifacts'
@@ -364,7 +436,9 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                         <Banner
                                           message={this.state.logsBannerMessage}
                                           mode={this.state.logsBannerMode}
-                                          additionalInfo={this.state.logsBannerAdditionalInfo}
+                                          additionalInfo={
+                                            this.state.logsBannerAdditionalInfo
+                                          }
                                           refresh={this._loadSelectedNodeLogs.bind(this)}
                                         />
                                       </React.Fragment>
@@ -379,9 +453,9 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                           className={classes(css.link, commonCss.unstyled)}
                                         >
                                           Stackdriver Kubernetes Monitoring
-                                        </a>
+                                               </a>
                                         .
-                                      </div>
+                                             </div>
                                     )}
                                     {!this.state.logsBannerMessage &&
                                       this.state.selectedNodeDetails && (
@@ -407,16 +481,18 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                         <div className={commonCss.flex}>
                           <InfoIcon className={commonCss.infoIcon} />
                           <span className={css.infoSpan}>
-                            Runtime execution graph. Only steps that are currently running or have
-                            already completed are shown.
-                          </span>
+                            Runtime execution graph. Only steps that are currently running or
+                            have already completed are shown.
+                                 </span>
                         </div>
                       </div>
                     </div>
                   )}
                   {!graph && (
                     <div>
-                      {runFinished && <span style={{ margin: '40px auto' }}>No graph to show</span>}
+                      {runFinished && (
+                        <span style={{ margin: '40px auto' }}>No graph to show</span>
+                      )}
                       {!runFinished && (
                         <CircularProgress size={30} className={commonCss.absoluteCenter} />
                       )}
@@ -433,7 +509,10 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                       <div className={css.outputTitle}>Metrics</div>
                       <div className={padding(20, 'lt')}>
                         <CompareTable
-                          {...CompareUtils.singleRunToMetricsCompareProps(runMetadata, workflow)}
+                          {...CompareUtils.singleRunToMetricsCompareProps(
+                            runMetadata,
+                            workflow,
+                          )}
                         />
                       </div>
                     </div>
@@ -612,10 +691,10 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
         this.refresh.bind(this),
         this.getInitialToolbarState().actions,
       );
-      const idGetter = () => (runMetadata ? [runMetadata!.id!] : []);
-      runMetadata!.storage_state === RunStorageState.ARCHIVED
-        ? buttons.restore(idGetter, true, () => this.refresh())
-        : buttons.archive(idGetter, true, () => this.refresh());
+      // const idGetter = () => (runMetadata ? [runMetadata!.id!] : []);
+      // runMetadata!.storage_state === RunStorageState.ARCHIVED
+      //   ? buttons.restore(idGetter, true, () => this.refresh())
+      //   : buttons.archive(idGetter, true, () => this.refresh());
       const actions = buttons.getToolbarActionMap();
       actions[ButtonKeys.TERMINATE_RUN].disabled =
         (runMetadata.status as NodePhase) === NodePhase.TERMINATING || runFinished;
@@ -698,20 +777,36 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     this.setStateSafe({ allArtifactConfigs });
   }
 
-  private _getDetailsFields(workflow: Workflow, runMetadata?: ApiRun): Array<KeyValue<string>> {
+  private _getDetailsFields(
+    workflow: Workflow,
+    runMetadata?: ApiRun,
+  ): Array<KeyValue<string>> {
     return !workflow.status
       ? []
       : [
-          ['Status', workflow.status.phase],
-          ['Description', runMetadata ? runMetadata!.description! : ''],
-          [
-            'Created at',
-            workflow.metadata ? formatDateString(workflow.metadata.creationTimestamp) : '-',
-          ],
-          ['Started at', formatDateString(workflow.status.startedAt)],
-          ['Finished at', formatDateString(workflow.status.finishedAt)],
-          ['Duration', getRunDurationFromWorkflow(workflow)],
-        ];
+        ['Status', workflow.status.phase],
+        ['Description', runMetadata ? runMetadata!.description! : ''],
+        [
+          'Created at',
+          workflow.metadata ? formatDateString(workflow.metadata.creationTimestamp) : '-',
+        ],
+        ['Started at', formatDateString(workflow.status.startedAt)],
+        ['Finished at', formatDateString(workflow.status.finishedAt)],
+        ['Duration', getRunDurationFromWorkflow(workflow)],
+      ];
+  }
+
+  private _getLogger(id: string): string {
+    const node = this.state.workflow && this.state.workflow.status.nodes[id];
+    const template =
+      node &&
+      this.state.workflow &&
+      this.state.workflow.spec &&
+      this.state.workflow.spec.templates.find(
+        t => t.name.toLowerCase() === node.displayName.toLowerCase(),
+      );
+    const labels = template && template.metadata && template.metadata.labels;
+    return (labels && labels.logger && labels.logger) || '';
   }
 
   private async _selectNode(id: string): Promise<void> {
@@ -719,6 +814,50 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       { selectedNodeDetails: { id } },
       async () => await this._loadSidePaneTab(this.state.sidepanelSelectedTab),
     );
+    const node = this.state.workflow && this.state.workflow.status.nodes[id];
+    const template =
+      node &&
+      this.state.workflow &&
+      this.state.workflow.spec &&
+      this.state.workflow.spec.templates.find(
+        t => t.name.toLowerCase() === node.displayName.toLowerCase(),
+      );
+    const labels = template && template.metadata && template.metadata.labels;
+    if (
+      node &&
+      labels &&
+      labels.platform &&
+      labels.platform.toLowerCase() === 'dkube' &&
+      (labels.stage === 'training' || labels.stage === 'preprocess')
+    ) {
+      this.setStateSafe({
+        dkube: null,
+        loading: true,
+        platform: labels.platform.toLowerCase(),
+        stage: labels.stage,
+      });
+      try {
+        const dkube = await Apis.getDkubeJobInfo(node.id);
+        const obj = JSON.parse(dkube);
+        const user = obj.data.parameters.generated.user;
+        const jobid = obj.data.parameters.generated.jobid;
+        const jobtype = obj.data.parameters.generated.subclass;
+        const jobname = obj.data.name;
+        this.setStateSafe({
+          dkube: dkube,
+          jobid: jobid,
+          jobname: jobname,
+          jobtype: jobtype,
+          loading: false,
+          user: user,
+        });
+      } catch (err) {
+        this.setStateSafe({ loading: false });
+        logger.error('Error getting DKube job details');
+      }
+    } else {
+      this.setStateSafe({ dkube: null, loading: false });
+    }
   }
 
   private async _loadSidePaneTab(tab: SidePaneTab): Promise<void> {
@@ -753,10 +892,12 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     }
     this.setStateSafe({ sidepanelBusy: true });
     try {
-      const logs = await Apis.getPodLogs(
-        selectedNodeDetails.id,
-        RunUtils.getNamespaceReferenceName(this.state.runMetadata),
-      );
+      let logs;
+      const logSrc = this._getLogger(selectedNodeDetails.id);
+      const workflowName = this.state.workflow && this.state.workflow.metadata.name;
+      if (workflowName) {
+        logs = await Apis.getPodLogsFromDkube(workflowName, selectedNodeDetails.id, logSrc);
+      }
       selectedNodeDetails.logs = logs;
       this.setStateSafe({
         logsBannerAdditionalInfo: '',
@@ -962,29 +1103,29 @@ const ArtifactsTabContent: React.FC<{
       {!loaded ? (
         <Progress value={progress} onComplete={onLoad} />
       ) : (
-        <>
-          {[
-            ...viewerConfigs,
-            ...generatedVisualizations.map(visualization => visualization.config),
-          ].map((config, i) => {
-            const title = componentMap[config.type].prototype.getDisplayName();
-            return (
-              <div key={i} className={padding(20, 'lrt')}>
-                <PlotCard configs={[config]} title={title} maxDimension={500} />
-                <Hr />
-              </div>
-            );
-          })}
-          <div className={padding(20, 'lrt')}>
-            <PlotCard
-              configs={[visualizationCreatorConfig]}
-              title={VisualizationCreator.prototype.getDisplayName()}
-              maxDimension={500}
-            />
-            <Hr />
-          </div>
-        </>
-      )}
+          <>
+            {[
+              ...viewerConfigs,
+              ...generatedVisualizations.map(visualization => visualization.config),
+            ].map((config, i) => {
+              const title = componentMap[config.type].prototype.getDisplayName();
+              return (
+                <div key={i} className={padding(20, 'lrt')}>
+                  <PlotCard configs={[config]} title={title} maxDimension={500} />
+                  <Hr />
+                </div>
+              );
+            })}
+            <div className={padding(20, 'lrt')}>
+              <PlotCard
+                configs={[visualizationCreatorConfig]}
+                title={VisualizationCreator.prototype.getDisplayName()}
+                maxDimension={500}
+              />
+              <Hr />
+            </div>
+          </>
+        )}
     </div>
   );
 };

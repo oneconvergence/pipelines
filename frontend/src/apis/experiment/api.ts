@@ -221,6 +221,11 @@ export const ExperimentServiceApiFetchParamCreator = function(configuration?: Co
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
 
+      const token = localStorage.getItem('token');
+     
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
+
+
       localVarHeaderParameter['Content-Type'] = 'application/json';
 
       localVarUrlObj.query = Object.assign(
@@ -274,6 +279,11 @@ export const ExperimentServiceApiFetchParamCreator = function(configuration?: Co
             : configuration.apiKey;
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
+
+      const token = localStorage.getItem('token');
+     
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
+
 
       localVarUrlObj.query = Object.assign(
         {},

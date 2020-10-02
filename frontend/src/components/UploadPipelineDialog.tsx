@@ -31,6 +31,7 @@ import { stylesheet, classes } from 'typestyle';
 import { ExternalLink } from '../atoms/ExternalLink';
 
 const css = stylesheet({
+  container:{height: '60%'},
   dropOverlay: {
     backgroundColor: color.lightGrey,
     border: '2px dashed #aaa',
@@ -113,7 +114,7 @@ class UploadPipelineDialog extends React.Component<
         id='uploadDialog'
         onClose={() => this._uploadDialogClosed(false)}
         open={this.props.open}
-        classes={{ paper: css.root }}
+        classes={{ paper: css.root, container: css.container }}
       >
         <DialogTitle>Upload and name your pipeline</DialogTitle>
 

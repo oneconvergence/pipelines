@@ -94,6 +94,7 @@ interface NewRunState {
 }
 
 const css = stylesheet({
+  container:{height: '60%'},
   nonEditableInput: {
     color: color.secondaryText,
   },
@@ -273,7 +274,7 @@ class NewRun extends Page<{}, NewRunState> {
           {/* Pipeline selector dialog */}
           <Dialog
             open={pipelineSelectorOpen}
-            classes={{ paper: css.selectorDialog }}
+            classes={{ paper: css.selectorDialog, container: css.container }}
             onClose={() => this._pipelineSelectorClosed(false)}
             PaperProps={{ id: 'pipelineSelectorDialog' }}
           >
@@ -390,7 +391,7 @@ class NewRun extends Page<{}, NewRunState> {
           {/* Experiment selector dialog */}
           <Dialog
             open={experimentSelectorOpen}
-            classes={{ paper: css.selectorDialog }}
+            classes={{ paper: css.selectorDialog, container: css.container }}
             onClose={() => this._experimentSelectorClosed(false)}
             PaperProps={{ id: 'experimentSelectorDialog' }}
           >

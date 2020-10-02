@@ -95,6 +95,9 @@ const css = stylesheet({
   runStatsCard: {
     width: 270,
   },
+  dialogContainer:{
+    height: '60%'
+  },
 });
 
 interface ExperimentDetailsState {
@@ -123,11 +126,12 @@ class ExperimentDetails extends Page<{}, ExperimentDetailsState> {
           .newRecurringRun(this.props.match.params[RouteParams.experimentId])
           .compareRuns(() => this.state.selectedIds)
           .cloneRun(() => this.state.selectedIds, false)
-          .archive(
-            () => this.state.selectedIds,
-            false,
-            ids => this._selectionChanged(ids),
-          )
+          .delete(() => this.state.selectedIds, 'run', ids => this._selectionChanged(ids), false)
+          // .archive(
+          //   () => this.state.selectedIds,
+          //   false,
+          //   ids => this._selectionChanged(ids),
+          // )
           .getToolbarActionMap(),
         breadcrumbs: [],
         pageTitle: 'Runs',
@@ -142,7 +146,11 @@ class ExperimentDetails extends Page<{}, ExperimentDetailsState> {
   public getInitialToolbarState(): ToolbarProps {
     const buttons = new Buttons(this.props, this.refresh.bind(this));
     return {
-      actions: buttons.refresh(this.refresh.bind(this)).getToolbarActionMap(),
+      //actions: buttons.refresh(this.refresh.bind(this)).getToolbarActionMap(),
+      actions: buttons
+         .refresh(this.refresh.bind(this))
+         .delete(() => [this.props.match.params[RouteParams.experimentId]], 'experiment', this._deleteCallback.bind(this), true)
+         .getToolbarActionMap(),
       breadcrumbs: [{ displayName: 'Experiments', href: RoutePage.EXPERIMENTS }],
       // TODO: determine what to show if no props.
       pageTitle: this.props ? this.props.match.params[RouteParams.experimentId] : '',
@@ -237,7 +245,7 @@ class ExperimentDetails extends Page<{}, ExperimentDetailsState> {
 
             <Dialog
               open={this.state.recurringRunsManagerOpen}
-              classes={{ paper: css.recurringRunsDialog }}
+              classes={{ paper: css.recurringRunsDialog, container: css.dialogContainer }}
               onClose={this._recurringRunsManagerClosed.bind(this)}
             >
               <DialogContent>
@@ -319,12 +327,16 @@ class ExperimentDetails extends Page<{}, ExperimentDetailsState> {
     }
   }
 
+
+
   private _selectionChanged(selectedIds: string[]): void {
     const toolbarActions = this.state.runListToolbarProps.actions;
     toolbarActions[ButtonKeys.COMPARE].disabled =
       selectedIds.length <= 1 || selectedIds.length > 10;
     toolbarActions[ButtonKeys.CLONE_RUN].disabled = selectedIds.length !== 1;
-    toolbarActions[ButtonKeys.ARCHIVE].disabled = !selectedIds.length;
+    //delete run button
+    toolbarActions[ButtonKeys.DELETE_RUN].disabled = !selectedIds.length;
+    // toolbarActions[ButtonKeys.ARCHIVE].disabled = !selectedIds.length;
     this.setState({
       runListToolbarProps: {
         actions: toolbarActions,
@@ -340,6 +352,15 @@ class ExperimentDetails extends Page<{}, ExperimentDetailsState> {
     this.setState({ recurringRunsManagerOpen: false });
     // Reload the details to get any updated recurring runs
     this.refresh();
+  }
+
+   private _deleteCallback(_: string[], success: boolean): void {
+    if (success) {
+      const breadcrumbs = this.props.toolbarProps.breadcrumbs;
+      const previousPage = breadcrumbs.length ?
+        breadcrumbs[breadcrumbs.length - 1].href : RoutePage.EXPERIMENTS;
+      this.props.history.push(previousPage);
+    }
   }
 }
 

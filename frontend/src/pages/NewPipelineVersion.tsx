@@ -553,7 +553,7 @@ class NewPipelineVersion extends Page<{}, NewPipelineVersionState> {
         this.props.history.push(
           RoutePage.PIPELINE_DETAILS.replace(
             `:${RouteParams.pipelineId}`,
-            response.resource_references![0].key!.id! /* pipeline id of this version */,
+	      response.resource_references![0].key!.id!
           ).replace(`:${RouteParams.pipelineVersionId}`, response.id!),
         );
         this.props.updateSnackbar({

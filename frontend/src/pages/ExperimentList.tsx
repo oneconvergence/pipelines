@@ -48,6 +48,7 @@ interface DisplayExperiment extends ApiExperiment {
 interface ExperimentListState {
   displayExperiments: DisplayExperiment[];
   selectedIds: string[];
+  selectedRunIds: string[];
   selectedTab: number;
 }
 
@@ -60,6 +61,7 @@ class ExperimentList extends Page<{}, ExperimentListState> {
     this.state = {
       displayExperiments: [],
       selectedIds: [],
+      selectedRunIds: [],
       selectedTab: 0,
     };
   }
@@ -72,12 +74,13 @@ class ExperimentList extends Page<{}, ExperimentListState> {
         .newExperiment()
         .compareRuns(() => this.state.selectedIds)
         .cloneRun(() => this.state.selectedIds, false)
-        .archive(
-          () => this.state.selectedIds,
-          false,
-          ids => this._selectionChanged(ids),
-        )
+        //.archive(
+        //  () => this.state.selectedIds,
+        //  false,
+        //  ids => this._SelectionChanged(ids),
+        // )
         .refresh(this.refresh.bind(this))
+        .delete(() => this.state.selectedIds, 'run', ids => this._runSelectionChanged(ids), false )
         .getToolbarActionMap(),
       breadcrumbs: [],
       pageTitle: 'Experiments',
@@ -123,6 +126,8 @@ class ExperimentList extends Page<{}, ExperimentListState> {
           rows={rows}
           ref={this._tableRef}
           disableSelection={true}
+          //updateSelection={this._runSelectionChanged.bind(this)}
+          selectedIds={this.state.selectedIds}
           initialSortColumn={ExperimentSortKeys.CREATED_AT}
           reload={this._reload.bind(this)}
           toggleExpansion={this._toggleRowExpand.bind(this)}
@@ -228,13 +233,19 @@ class ExperimentList extends Page<{}, ExperimentListState> {
     return response.next_page_token || '';
   }
 
-  private _selectionChanged(selectedIds: string[]): void {
-    const actions = this.props.toolbarProps.actions;
-    actions[ButtonKeys.COMPARE].disabled = selectedIds.length <= 1 || selectedIds.length > 10;
-    actions[ButtonKeys.CLONE_RUN].disabled = selectedIds.length !== 1;
-    actions[ButtonKeys.ARCHIVE].disabled = !selectedIds.length;
-    this.props.updateToolbar({ actions });
-    this.setState({ selectedIds });
+  private _runSelectionChanged(selectedIds: string[]): void {
+   const toolbarActions = this.props.toolbarProps.actions;
+    // Delete runs button
+    toolbarActions[ButtonKeys.DELETE_RUN].disabled = !selectedIds.length;
+    toolbarActions[ButtonKeys.COMPARE].disabled =
+      selectedIds.length <= 1 || selectedIds.length > 10;
+    toolbarActions[ButtonKeys.CLONE_RUN].disabled = selectedIds.length !== 1;
+    // toolbarActions[ButtonKeys.ARCHIVE].disabled = !selectedIds.length;
+    this.props.updateToolbar({
+      actions: toolbarActions,
+      breadcrumbs: this.props.toolbarProps.breadcrumbs,
+    });
+    this.setState({ selectedIds: selectedIds });
   }
 
   private _toggleRowExpand(rowIndex: number): void {
@@ -260,7 +271,7 @@ class ExperimentList extends Page<{}, ExperimentListState> {
         selectedIds={this.state.selectedIds}
         noFilterBox={true}
         storageState={RunStorageState.AVAILABLE}
-        onSelectionChange={this._selectionChanged.bind(this)}
+        onSelectionChange={this._runSelectionChanged.bind(this)}
         disableSorting={true}
       />
     );

@@ -46,15 +46,16 @@ class AllRunsList extends Page<{}, AllRunsListState> {
         .newExperiment()
         .compareRuns(() => this.state.selectedIds)
         .cloneRun(() => this.state.selectedIds, false)
-        .archive(
-          () => this.state.selectedIds,
-          false,
-          selectedIds => this._selectionChanged(selectedIds),
-        )
+        // .archive(
+        //   () => this.state.selectedIds,
+        //   false,
+        //   selectedIds => this._selectionChanged(selectedIds),
+        // )
         .refresh(this.refresh.bind(this))
+        .delete(() => this.state.selectedIds, 'run', ids => this._selectionChanged(ids), false)
         .getToolbarActionMap(),
       breadcrumbs: [],
-      pageTitle: 'Experiments',
+      pageTitle: 'Runs',
     };
   }
 
@@ -84,10 +85,12 @@ class AllRunsList extends Page<{}, AllRunsListState> {
 
   private _selectionChanged(selectedIds: string[]): void {
     const toolbarActions = this.props.toolbarProps.actions;
+    // Delete runs button
+    toolbarActions[ButtonKeys.DELETE_RUN].disabled = !selectedIds.length;
     toolbarActions[ButtonKeys.COMPARE].disabled =
       selectedIds.length <= 1 || selectedIds.length > 10;
     toolbarActions[ButtonKeys.CLONE_RUN].disabled = selectedIds.length !== 1;
-    toolbarActions[ButtonKeys.ARCHIVE].disabled = !selectedIds.length;
+    // toolbarActions[ButtonKeys.ARCHIVE].disabled = !selectedIds.length;
     this.props.updateToolbar({
       actions: toolbarActions,
       breadcrumbs: this.props.toolbarProps.breadcrumbs,

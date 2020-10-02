@@ -492,6 +492,8 @@ export const JobServiceApiFetchParamCreator = function(configuration?: Configura
             : configuration.apiKey;
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
+      const token = localStorage.getItem('token');
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
 
       localVarHeaderParameter['Content-Type'] = 'application/json';
 
@@ -547,6 +549,9 @@ export const JobServiceApiFetchParamCreator = function(configuration?: Configura
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
 
+      const token = localStorage.getItem('token');
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
+
       localVarUrlObj.query = Object.assign(
         {},
         localVarUrlObj.query,
@@ -594,6 +599,9 @@ export const JobServiceApiFetchParamCreator = function(configuration?: Configura
             : configuration.apiKey;
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
+      
+      const token = localStorage.getItem('token');
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
 
       localVarUrlObj.query = Object.assign(
         {},
@@ -642,6 +650,9 @@ export const JobServiceApiFetchParamCreator = function(configuration?: Configura
             : configuration.apiKey;
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
+      
+      const token = localStorage.getItem('token');
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
 
       localVarUrlObj.query = Object.assign(
         {},

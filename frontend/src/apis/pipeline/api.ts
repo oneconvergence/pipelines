@@ -440,6 +440,10 @@ export const PipelineServiceApiFetchParamCreator = function(configuration?: Conf
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
 
+      const token = localStorage.getItem('token');
+     
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
+
       localVarHeaderParameter['Content-Type'] = 'application/json';
 
       localVarUrlObj.query = Object.assign(
@@ -490,6 +494,10 @@ export const PipelineServiceApiFetchParamCreator = function(configuration?: Conf
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
 
+      const token = localStorage.getItem('token');
+     
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
+    
       localVarHeaderParameter['Content-Type'] = 'application/json';
 
       localVarUrlObj.query = Object.assign(
@@ -544,6 +552,10 @@ export const PipelineServiceApiFetchParamCreator = function(configuration?: Conf
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
 
+      const token = localStorage.getItem('token');
+     
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
+
       localVarUrlObj.query = Object.assign(
         {},
         localVarUrlObj.query,
@@ -590,6 +602,8 @@ export const PipelineServiceApiFetchParamCreator = function(configuration?: Conf
             : configuration.apiKey;
         localVarHeaderParameter['authorization'] = localVarApiKeyValue;
       }
+      const token = localStorage.getItem('token');
+      localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
 
       localVarUrlObj.query = Object.assign(
         {},

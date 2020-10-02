@@ -148,24 +148,19 @@ export default class Buttons {
   // or recurring run config.
   public delete(
     getSelectedIds: () => string[],
-    resourceName: 'pipeline' | 'recurring run config' | 'pipeline version',
+    resourceName: 'pipeline' | 'recurring run config' | 'pipeline version' | 'run' | 'experiment',
     callback: (selectedIds: string[], success: boolean) => void,
     useCurrentResource: boolean,
   ): Buttons {
     this._map[ButtonKeys.DELETE_RUN] = {
-      action: () =>
-        resourceName === 'pipeline'
-          ? this._deletePipeline(getSelectedIds(), useCurrentResource, callback)
-          : resourceName === 'pipeline version'
-          ? this._deletePipelineVersion(getSelectedIds(), useCurrentResource, callback)
-          : this._deleteRecurringRun(getSelectedIds()[0], useCurrentResource, callback),
+      action: () => this._deleteAction(getSelectedIds, resourceName, callback, useCurrentResource ),
       disabled: !useCurrentResource,
       disabledTitle: useCurrentResource
         ? undefined
         : `Select at least one ${resourceName} to delete`,
       id: 'deleteBtn',
-      title: 'Delete',
-      tooltip: 'Delete',
+      title: 'Delete ' + (useCurrentResource ? resourceName : resourceName + 's'),
+      tooltip: 'Delete selected ' + (useCurrentResource ? resourceName : resourceName + 's'),
     };
     return this;
   }
@@ -428,6 +423,26 @@ export default class Buttons {
     );
   }
 
+  private _deleteAction(getSelectedIds: () => string[], resourceName: 'pipeline' | 'recurring run config' |'pipeline version' | 'run' | 'experiment',
+    callback: (selectedIds: string[], success: boolean) => void, useCurrentResource: boolean): void {
+      switch(resourceName){
+        case 'pipeline':
+          this._deletePipeline(getSelectedIds(), useCurrentResource, callback);
+          break;
+        case 'recurring run config':
+          this._deleteRecurringRun(getSelectedIds()[0], useCurrentResource, callback);
+          break;
+        case 'pipeline version':
+          this._deletePipelineVersion(getSelectedIds(), useCurrentResource, callback);
+          break;
+        case 'run':
+          this._deleteRun(getSelectedIds(), useCurrentResource, callback);
+          break;
+        case 'experiment':
+          this._deleteExp(getSelectedIds(), useCurrentResource, callback);
+      }
+  }
+
   private _deletePipeline(
     selectedIds: string[],
     useCurrentResource: boolean,
@@ -443,6 +458,32 @@ export default class Buttons {
       callback,
       'Delete',
       'pipeline',
+    );
+  }
+
+  private _deleteRun(selectedIds: string[], useCurrentResource: boolean,
+    callback: (selectedIds: string[], success: boolean) => void): void {
+    this._dialogActionHandler(
+      selectedIds,
+      'Do you want to delete selected Run(s)? This action cannot be undone.',
+      useCurrentResource,
+      id => Apis.runServiceApi.deleteRun(id),
+      callback,
+      'Delete',
+      'run',
+    );
+  }
+
+  private _deleteExp(selectedIds: string[], useCurrentResource: boolean,
+    callback: (selectedIds: string[], success: boolean) => void): void {
+    this._dialogActionHandler(
+      selectedIds,
+      'Do you want to delete this Experiemnt? This action cannot be undone.',
+      useCurrentResource,
+      id => Apis.experimentServiceApi.deleteExperiment(id),
+      callback,
+      'Delete',
+      'experiment',
     );
   }
 
