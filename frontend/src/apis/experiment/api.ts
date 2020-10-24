@@ -348,6 +348,10 @@ export const ExperimentServiceApiFetchParamCreator = function(configuration?: Co
           'Required parameter body was null or undefined when calling createExperiment.',
         );
       }
+      const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
+      if (project && project["id"]) {
+        body["name"] = "[" + project["value"] + "]" + " - " + body["name"]
+      }
       const localVarPath = `/apis/v1beta1/experiments`;
       const localVarUrlObj = url.parse(localVarPath, true);
       const localVarRequestOptions = Object.assign({ method: 'POST' }, options);
@@ -533,9 +537,13 @@ export const ExperimentServiceApiFetchParamCreator = function(configuration?: Co
       if (sort_by !== undefined) {
         localVarQueryParameter['sort_by'] = sort_by;
       }
+      const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
 
-      if (filter !== undefined) {
+      if (filter !== undefined && filter != '') {
         localVarQueryParameter['filter'] = filter;
+      } else if (project && project["id"]) {
+        const project_filter = { "key": "name", "op": "IS_SUBSTRING", "string_value": "[" + project["value"] + "]" }
+        localVarQueryParameter['filter'] = encodeURIComponent(JSON.stringify({ "predicates": [project_filter] }))
       }
 
       if (resource_reference_key_type !== undefined) {
