@@ -56,7 +56,10 @@ const css = stylesheet({
 
 class NewRunParameters extends React.Component<NewRunParametersProps> {
   public render(): JSX.Element | null {
-    const { handleParamChange, initialParams, titleMessage } = this.props;
+    const { handleParamChange, initialParams, titleMessage } = this.props;  
+    const token = localStorage.getItem('token');
+    let project = localStorage.getItem('activeProject');
+    if (project) project = JSON.parse(project)
 
     return (
       <div>
@@ -65,6 +68,8 @@ class NewRunParameters extends React.Component<NewRunParametersProps> {
         {!!initialParams.length && (
           <div>
             {initialParams.map((param, i) => {
+              if (param.name === 'project_id' && project && project["id"]) param.value = project["id"]
+              if (param.name === 'token' && token) param.value = token
               return (
                 <ParamEditor
                   key={i}

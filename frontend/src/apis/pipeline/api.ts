@@ -441,6 +441,10 @@ export const PipelineServiceApiFetchParamCreator = function(configuration?: Conf
       }
 
       const token = localStorage.getItem('token');
+      const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
+      if (project && project["id"]) {
+        body["name"] = "[" + project["value"] + "]" + " - " + body["name"]
+      }
      
       localVarHeaderParameter['authorization'] = token ? 'Bearer ' + token.toString() : ''
 
@@ -933,9 +937,13 @@ export const PipelineServiceApiFetchParamCreator = function(configuration?: Conf
       if (sort_by !== undefined) {
         localVarQueryParameter['sort_by'] = sort_by;
       }
+      const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
 
-      if (filter !== undefined) {
+      if (filter !== undefined && filter != '') {
         localVarQueryParameter['filter'] = filter;
+      } else if (project && project["id"]) {
+        const project_filter = { "key": "name", "op": "IS_SUBSTRING", "string_value": "[" + project["value"] + "]" }
+        localVarQueryParameter['filter'] = encodeURIComponent(JSON.stringify({ "predicates": [project_filter] }))
       }
 
       localVarUrlObj.query = Object.assign(
