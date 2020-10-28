@@ -822,7 +822,9 @@ export const RunServiceApiFetchParamCreator = function(configuration?: Configura
 
       const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
       let project_filter = null
-      project_filter = { "key": "name", "op": "IS_SUBSTRING", "string_value": "[" + project["value"] + "]" }
+      if (project && project["id"]) {
+        project_filter = { "key": "name", "op": "IS_SUBSTRING", "string_value": "[" + project["value"] + "]" }
+      }
       if (filter !== undefined && filter != '') {
         let temp = JSON.parse(decodeURIComponent(filter))
         for (let f of temp["predicates"]) {
