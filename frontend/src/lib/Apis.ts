@@ -270,6 +270,12 @@ export class Apis {
   ): Promise<ApiPipeline> {
     const token = localStorage.getItem('token');
     const fd = new FormData();
+    const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
+
+    if (project && project["id"]) {
+      pipelineName = "[" + project["value"] + "]" + " - " + pipelineName
+    }
+
     fd.append('uploadfile', pipelineData, pipelineData.name);
     return await this._fetchAndParse<ApiPipeline>(
       '/pipelines/upload',
