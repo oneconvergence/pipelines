@@ -85,7 +85,7 @@ export function loadConfigs(
     /** Prefix to logs. */
     ARGO_ARCHIVE_PREFIX = 'logs',
     /** Disables GKE metadata endpoint. */
-    DISABLE_GKE_METADATA = 'false',
+    DISABLE_GKE_METADATA = 'true',
     /** Deployment type. */
     DEPLOYMENT: DEPLOYMENT_STR = '',
   } = env;
