@@ -340,22 +340,34 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                         title={'training'}
                                       />
                                     )}
-                                    {this.state.dkube &&
-                                      this.state.stage === 'preprocess' && (
-                                        <iframe
-                                          src={
-                                            '/#/ds/jobs/runs/preprocessing/user/' +
-                                            this.state.user +
-                                            '/' +
-                                            this.state.jobname +
-                                            '/' +
-                                            this.state.jobid +
-                                            '?tab=summary&iframe=true'
-                                          }
-                                          style={{ height: '100vh' }}
-                                          title={'preprocess'}
-                                        />
-                                      )}
+                                    {this.state.dkube && this.state.stage === 'preprocess' && (
+                                      <iframe
+                                        src={
+                                          '/#/ds/jobs/runs/preprocessing/user/' +
+                                          this.state.user +
+                                          '/' +
+                                          this.state.jobname +
+                                          '/' +
+                                          this.state.jobid +
+                                          '?tab=summary&iframe=true'
+                                        }
+                                        style={{ height: '100vh' }}
+                                        title={'preprocess'}
+                                      />
+                                    )}
+                                    {this.state.dkube && this.state.stage === 'serving' && (
+                                      <iframe
+                                        src={
+                                          '/#/ds/inferences/user/' +
+                                          this.state.user +
+                                          '/' +
+                                          this.state.jobname +
+                                          '?tab=inputs&iframe=true'
+                                        }
+                                        style={{ height: '100vh' }}
+                                        title={'serving'}
+                                      />
+                                    )}
                                   </div>
                                 )}
                                 {sidepanelSelectedTab === SidePaneTab.ARTIFACTS &&
@@ -828,7 +840,7 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       labels &&
       labels.platform &&
       labels.platform.toLowerCase() === 'dkube' &&
-      (labels.stage === 'training' || labels.stage === 'preprocess')
+      (labels.stage === 'training' || labels.stage === 'preprocess' || labels.stage === 'serving')
     ) {
       this.setStateSafe({
         dkube: null,
