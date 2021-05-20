@@ -65,6 +65,7 @@ export class BaseAPI {
       this.configuration = configuration;
       this.basePath = configuration.basePath || this.basePath;
     }
+    this.configuration.apiKey = 'Bearer ' + localStorage.getItem('token')
   }
 }
 
