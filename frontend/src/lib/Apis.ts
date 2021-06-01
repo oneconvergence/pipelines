@@ -25,6 +25,8 @@ import { buildQuery } from './Utils';
 import { StoragePath, StorageService } from './WorkflowParser';
 
 const v1beta1Prefix = 'apis/v1beta1';
+const token = localStorage.getItem('token') || ''
+const apiKey = 'Bearer ' + token
 
 export interface ListRequest {
   filter?: string;
@@ -139,7 +141,7 @@ export class Apis {
   public static get experimentServiceApi(): ExperimentServiceApi {
     if (!this._experimentServiceApi) {
       this._experimentServiceApi = new ExperimentServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -150,7 +152,7 @@ export class Apis {
   public static get jobServiceApi(): JobServiceApi {
     if (!this._jobServiceApi) {
       this._jobServiceApi = new JobServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -161,7 +163,7 @@ export class Apis {
   public static get pipelineServiceApi(): PipelineServiceApi {
     if (!this._pipelineServiceApi) {
       this._pipelineServiceApi = new PipelineServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -172,7 +174,7 @@ export class Apis {
   public static get runServiceApi(): RunServiceApi {
     if (!this._runServiceApi) {
       this._runServiceApi = new RunServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -183,7 +185,7 @@ export class Apis {
   public static get visualizationServiceApi(): VisualizationServiceApi {
     if (!this._visualizationServiceApi) {
       this._visualizationServiceApi = new VisualizationServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -411,7 +413,7 @@ export class Apis {
     query?: string,
     init?: RequestInit,
   ): Promise<string> {
-    init = Object.assign(init || {}, { credentials: 'same-origin' });
+    init = Object.assign(init || {}, { credentials: 'same-origin', headers: { 'Authorization': apiKey}});
     const response = await fetch((apisPrefix || '') + path + (query ? '?' + query : ''), init);
     const responseText = await response.text();
     if (response.ok) {
