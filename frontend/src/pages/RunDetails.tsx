@@ -80,6 +80,7 @@ import { Page, PageProps } from './Page';
 import { statusToIcon } from './Status';
 
 export enum SidePanelTab {
+  DKUBE,
   INPUT_OUTPUT,
   VISUALIZATIONS,
   TASK_DETAILS,
@@ -139,6 +140,14 @@ interface RunDetailsState {
   mlmdExecutions?: Execution[];
   showReducedGraph?: boolean;
   namespace?: string;
+  jobid: string;
+  dkube: any;
+  platform: string;
+  jobname: string;
+  jobtype: string;
+  loading: boolean;
+  stage: string;
+  user: string;
 }
 
 export const css = stylesheet({
@@ -185,10 +194,18 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     selectedTab: 0,
     sidepanelBannerMode: 'warning',
     sidepanelBusy: false,
-    sidepanelSelectedTab: SidePanelTab.INPUT_OUTPUT,
+    sidepanelSelectedTab: SidePanelTab.DKUBE,
     mlmdRunContext: undefined,
     mlmdExecutions: undefined,
     showReducedGraph: false,
+    dkube: null,
+    loading: false,
+    platform: '',
+    jobid: '',
+    jobname: '',
+    jobtype: '',
+    stage: '',
+    user: '',
   };
 
   private readonly AUTO_REFRESH_INTERVAL = 5000;
@@ -342,6 +359,41 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                 data-testid='run-details-node-details'
                                 className={commonCss.page}
                               >
+                                {sidepanelSelectedTab === SidePaneTab.DKUBE && (
+                                   <div className={commonCss.page}>
+                                     {this.state.dkube && this.state.stage === 'training' && (
+                                       <iframe
+                                         src={
+                                           '/#/ds/jobs/runs/training/user/' +
+                                           this.state.user +
+                                           '/' +
+                                           this.state.jobname +
+                                           '/' +
+                                           this.state.jobid +
+                                           '?tab=summary&iframe=true'
+                                         }
+                                         style={{ height: '100vh' }}
+                                         title={'training'}
+                                       />
+                                     )}
+                                     {this.state.dkube &&
+                                       this.state.stage === 'preprocess' && (
+                                         <iframe
+                                           src={
+                                             '/#/ds/jobs/runs/preprocessing/user/' +
+                                             this.state.user +
+                                             '/' +
+                                             this.state.jobname +
+                                             '/' +
+                                             this.state.jobid +
+                                             '?tab=summary&iframe=true'
+                                           }
+                                           style={{ height: '100vh' }}
+                                           title={'preprocess'}
+                                         />
+                                       )}
+                                   </div>
+                                 )}
                                 {sidepanelSelectedTab === SidePanelTab.VISUALIZATIONS &&
                                   this.state.selectedNodeDetails &&
                                   this.state.workflow &&
@@ -996,11 +1048,70 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       : [];
   }
 
+  private _getLogger(id: string): string {
+    const node = this.state.workflow && this.state.workflow.status.nodes[id];
+    const template =
+      node &&
+      this.state.workflow &&
+      this.state.workflow.spec &&
+      this.state.workflow.spec.templates &&
+      this.state.workflow.spec.templates.find(
+        t => t.name.toLowerCase() === node.displayName.toLowerCase(),
+      );
+    const labels = template && template.metadata && template.metadata.labels;
+    return (labels && labels.logger && labels.logger) || '';
+  }
+
   private async _selectNode(id: string): Promise<void> {
     this.setStateSafe(
       { selectedNodeDetails: { id } },
       async () => await this._loadSidePaneTab(this.state.sidepanelSelectedTab),
     );
+    const node = this.state.workflow && this.state.workflow.status.nodes[id];
+    const template =
+      node &&
+      this.state.workflow &&
+      this.state.workflow.spec &&
+      this.state.workflow.spec.templates &&
+      this.state.workflow.spec.templates.find(
+        t => t.name.toLowerCase() === node.displayName.toLowerCase(),
+      );
+    const labels = template && template.metadata && template.metadata.labels;
+    if (
+      node &&
+      labels &&
+      labels.platform &&
+      labels.platform.toLowerCase() === 'dkube' &&
+      (labels.stage === 'training' || labels.stage === 'preprocess')
+    ) {
+      this.setStateSafe({
+        dkube: null,
+        loading: true,
+        platform: labels.platform.toLowerCase(),
+        stage: labels.stage,
+      });
+      try {
+        const dkube = await Apis.getDkubeJobInfo(node.id);
+        const obj = JSON.parse(dkube);
+        const user = obj.data.parameters.generated.user;
+        const jobid = obj.data.parameters.generated.jobid;
+        const jobtype = obj.data.parameters.generated.subclass;
+        const jobname = obj.data.name;
+        this.setStateSafe({
+          dkube: dkube,
+          jobid: jobid,
+          jobname: jobname,
+          jobtype: jobtype,
+          loading: false,
+          user: user,
+        });
+      } catch (err) {
+        this.setStateSafe({ loading: false });
+        logger.error('Error getting DKube job details');
+      }
+    } else {
+      this.setStateSafe({ dkube: null, loading: false });
+    }
   }
 
   private async _loadSidePaneTab(tab: SidePanelTab): Promise<void> {
@@ -1073,7 +1184,14 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       } else {
         logsBannerMode = 'error';
       }
-
+      let logs;
+       const logSrc = this._getLogger(selectedNodeDetails.id);
+       const workflowName = this.state.workflow && this.state.workflow.metadata.name;
+       if (workflowName) {
+         logs = await Apis.getPodLogsFromDkube(workflowName, selectedNodeDetails.id, logSrc);
+         console.log(logs)
+         selectedNodeDetails.logs += logs
+       }
       logsBannerAdditionalInfo += 'Error response: ' + errMsg;
     }
 
