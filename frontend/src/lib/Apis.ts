@@ -110,6 +110,49 @@ export class Apis {
     return this._fetch(query);
   }
 
+    /**
+    * Get pod logs from DKube
+    */
+     public static async getPodLogsFromDkube(workflowName: string, nodeId: string, platform: string): Promise<string> {
+      const token = localStorage.getItem('token');
+      const init = {
+        headers:  {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/keyauth.api.v1+json',
+        'accept': 'application/json',
+        'authorization': token ? 'Bearer ' + token.toString() : ''
+        }
+      };
+      const path = (platform === 'dkubepl' ? '/dkube/pipeline/logs/' : '/argo/logs/kubeflow/') + workflowName + '/' + nodeId + '/main';
+      const logs = await this._fetch(path , undefined, undefined, init);
+      const data = logs.split('\n');
+      let res = '';
+      data.forEach(d => {
+        if(d.trim().length){
+          const log = d.trim().replace(/^(data:)/, '');
+          res = res + log + '\n';
+        }
+      });
+      return res;
+    }
+ 
+    /**
+     * Gets the  given DKube Job details
+     */
+    public static getDkubeJobInfo(id: string): Promise<any> {
+      const token = localStorage.getItem('token');
+      const init = {
+        headers:  {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/keyauth.api.v1+json',
+        'accept': 'application/json',
+        'authorization': token ? 'Bearer ' + token.toString() : ''
+        }
+      };
+      const path = '/dkube/v2/controller/jobs/uuid/' + id +'/';
+      return this._fetch(path, undefined, undefined, init);
+    }
+ 
   /**
    * Get pod info
    */
