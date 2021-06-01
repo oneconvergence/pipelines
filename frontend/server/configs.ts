@@ -79,17 +79,17 @@ export function loadConfigs(argv: string[], env: ProcessEnv): UIConfigs {
     /** Envoy service will listen to this port */
     METADATA_ENVOY_SERVICE_SERVICE_PORT = '9090',
     /** Is Argo log archive enabled? */
-    ARGO_ARCHIVE_LOGS = 'false',
+    ARGO_ARCHIVE_LOGS = 'true',
     /** Use minio or s3 client to retrieve archives. */
     ARGO_ARCHIVE_ARTIFACTORY = 'minio',
     /** Bucket to retrive logs from */
     ARGO_ARCHIVE_BUCKETNAME = 'mlpipeline',
     /** Prefix to logs. */
-    ARGO_ARCHIVE_PREFIX = 'logs',
+    ARGO_ARCHIVE_PREFIX = 'artifacts',
     /** Should use server API for log streaming? */
     STREAM_LOGS_FROM_SERVER_API = 'false',
     /** Disables GKE metadata endpoint. */
-    DISABLE_GKE_METADATA = 'false',
+    DISABLE_GKE_METADATA = 'true',
     /** Enable authorization checks for multi user mode. */
     ENABLE_AUTHZ = 'false',
     /** Deployment type. */

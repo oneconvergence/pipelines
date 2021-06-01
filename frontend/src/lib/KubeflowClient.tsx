@@ -27,6 +27,8 @@ declare global {
 }
 
 let namespace: string | undefined;
+namespace = localStorage.getItem('user') || undefined
+console.log("pipeline-ui: setting namespace to ",namespace)
 let registeredHandler: undefined | ((namespace: string) => void);
 function onNamespaceChanged(handler: (namespace: string) => void) {
   registeredHandler = handler;
@@ -47,7 +49,7 @@ export function init(): void {
       };
     });
   } catch (err) {
-    logger.error('Failed to initialize central dashboard client', err);
+    logger.verbose('Failed to initialize central dashboard client', err);
   }
 }
 
