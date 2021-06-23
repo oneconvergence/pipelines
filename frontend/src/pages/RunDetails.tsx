@@ -1169,7 +1169,13 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     let logsBannerMode = '' as Mode;
 
     try {
-      selectedNodeDetails.logs = await Apis.getPodLogs(runId, selectedNodeDetails.id, namespace);
+      const logSrc = this._getLogger(selectedNodeDetails.id);
+      const workflowName = this.state.workflow && this.state.workflow.metadata.name;
+      if (workflowName && logSrc == 'dkubepl') {
+        selectedNodeDetails.logs = await Apis.getPodLogsFromDkube(workflowName, selectedNodeDetails.id, logSrc);
+      } else {
+        selectedNodeDetails.logs = await Apis.getPodLogs(runId, selectedNodeDetails.id, namespace);
+      }
     } catch (err) {
       let errMsg = await errorToMessage(err);
       logsBannerMessage = 'Failed to retrieve pod logs.';
@@ -1184,14 +1190,6 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       } else {
         logsBannerMode = 'error';
       }
-      let logs;
-       const logSrc = this._getLogger(selectedNodeDetails.id);
-       const workflowName = this.state.workflow && this.state.workflow.metadata.name;
-       if (workflowName) {
-         logs = await Apis.getPodLogsFromDkube(workflowName, selectedNodeDetails.id, logSrc);
-         console.log(logs)
-         selectedNodeDetails.logs += logs
-       }
       logsBannerAdditionalInfo += 'Error response: ' + errMsg;
     }
 
