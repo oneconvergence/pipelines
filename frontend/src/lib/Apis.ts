@@ -123,7 +123,7 @@ export class Apis {
         'authorization': token ? 'Bearer ' + token.toString() : ''
         }
       };
-      const path = (platform === 'dkubepl' ? '/dkube/pipeline/logs/' : '/argo/logs/kubeflow/') + workflowName + '/' + nodeId + '/main';
+      const path = '/dkube/pipeline/logs/' + workflowName + '/' + nodeId + '/main';
       const logs = await this._fetch(path , undefined, undefined, init);
       const data = logs.split('\n');
       let res = '';
