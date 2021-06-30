@@ -57,6 +57,7 @@ import {
   logger,
   errorToMessage,
   serviceErrorToString,
+  decodeCompressedNodes,
 } from '../lib/Utils';
 import { statusToIcon } from './Status';
 import VisualizationCreator, {
@@ -641,9 +642,23 @@ export class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
         runFinished = true;
       }
 
-      const workflow = JSON.parse(
-        runDetail.pipeline_runtime!.workflow_manifest || '{}',
-      ) as Workflow;
+      const jsonWorkflow = JSON.parse(runDetail.pipeline_runtime!.workflow_manifest || '{}');
+
+      if (
+        jsonWorkflow.status &&
+        !jsonWorkflow.status.nodes &&
+        jsonWorkflow.status.compressedNodes
+      ) {
+        try {
+          jsonWorkflow.status.nodes = await decodeCompressedNodes(
+            jsonWorkflow.status.compressedNodes,
+          );
+          delete jsonWorkflow.status.compressedNodes;
+        } catch (err) {
+          console.error(`Failed to decode compressedNodes: ${err}`);
+        }
+      }
+      const workflow = jsonWorkflow as Workflow;
 
       // Show workflow errors
       const workflowError = WorkflowParser.getWorkflowError(workflow);
