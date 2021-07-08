@@ -429,6 +429,10 @@ export class Apis {
     );
   }
 
+  public static async listContributors(): Promise<any> {
+    return this._fetchAndParse("/kfam/v1/bindings?namespace=abikki");
+  }
+
   public static async uploadPipelineVersion(
     versionName: string,
     pipelineId: string,

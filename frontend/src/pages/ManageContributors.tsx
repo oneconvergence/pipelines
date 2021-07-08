@@ -16,59 +16,36 @@
 
 import * as React from 'react';
 import Buttons, { ButtonKeys } from '../lib/Buttons';
-import CustomTable, {
-  Column,
-  Row,
-  CustomRendererProps,
-  ExpandState,
-} from '../components/CustomTable';
-import PipelineVersionList from './PipelineVersionList';
-import UploadPipelineDialog, { ImportMethod } from '../components/UploadPipelineDialog';
-import { ApiPipeline, ApiListPipelinesResponse } from '../apis/pipeline';
+import CustomTable, { Column, Row } from '../components/CustomTable';
 import { Apis, PipelineSortKeys, ListRequest } from '../lib/Apis';
-import { Link } from 'react-router-dom';
 import { Page } from './Page';
-import { RoutePage, RouteParams } from '../components/Router';
 import { ToolbarProps } from '../components/Toolbar';
 import { classes } from 'typestyle';
 import { commonCss, padding } from '../Css';
-import { formatDateString, errorToMessage } from '../lib/Utils';
-import { Description } from '../components/Description';
-import produce from 'immer';
-import Tooltip from '@material-ui/core/Tooltip';
+import { formatDateString } from '../lib/Utils';
 
-interface DisplayPipeline extends ApiPipeline {
-  expandState?: ExpandState;
-}
-
-interface PipelineListState {
-  displayPipelines: DisplayPipeline[];
+interface ContributorListState {
   selectedIds: string[];
   uploadDialogOpen: boolean;
 
   // selectedVersionIds is a map from string to string array.
   // For each pipeline, there is a list of selected version ids.
   selectedVersionIds: { [pipelineId: string]: string[] };
+  displayContributors: any[];
 }
 
-const descriptionCustomRenderer: React.FC<CustomRendererProps<string>> = (
-  props: CustomRendererProps<string>,
-) => {
-  return <Description description={props.value || ''} forceInline={true} />;
-};
-
-class PipelineList extends Page<{}, PipelineListState> {
+class ContributorList extends Page<{}, ContributorListState> {
   private _tableRef = React.createRef<CustomTable>();
 
   constructor(props: any) {
     super(props);
 
     this.state = {
-      displayPipelines: [],
       selectedIds: [],
       uploadDialogOpen: false,
 
       selectedVersionIds: {},
+      displayContributors: [],
     };
   }
 
@@ -93,20 +70,17 @@ class PipelineList extends Page<{}, PipelineListState> {
   public render(): JSX.Element {
     const columns: Column[] = [
       {
-        customRenderer: this._nameCustomRenderer,
         flex: 1,
         label: 'Username',
         sortKey: PipelineSortKeys.NAME,
       },
-      { label: 'Permission', flex: 3, customRenderer: descriptionCustomRenderer },
+      { label: 'Permission', flex: 1 },
       { label: 'Added At', sortKey: PipelineSortKeys.CREATED_AT, flex: 1 },
     ];
-
-    const rows: Row[] = this.state.displayPipelines.map(p => {
+    const rows: Row[] = this.state.displayContributors.map(p => {
       return {
-        expandState: p.expandState,
-        id: p.id!,
-        otherFields: [p.name!, p.description!, formatDateString(p.created_at!)],
+        id: p.user.name!,
+        otherFields: [p.user.name!, p.RoleRef.name!, formatDateString('2021-07-07T05:29:53Z')],
       };
     });
 
@@ -120,15 +94,8 @@ class PipelineList extends Page<{}, PipelineListState> {
           updateSelection={this._selectionChanged.bind(this, undefined)}
           selectedIds={this.state.selectedIds}
           reload={this._reload.bind(this)}
-          // toggleExpansion={this._toggleRowExpand.bind(this)}
-          // getExpandComponent={this._getExpandedPipelineComponent.bind(this)}
-          filterLabel='Filter pipelines'
-          emptyMessage='No pipelines... found. Click "Upload pipeline" to start.'
-        />
-
-        <UploadPipelineDialog
-          open={this.state.uploadDialogOpen}
-          onClose={this._uploadDialogClosed.bind(this)}
+          filterLabel='Filter contributors'
+          emptyMessage='No contributors found. Click "Add contributor" to start.'
         />
       </div>
     );
@@ -140,70 +107,20 @@ class PipelineList extends Page<{}, PipelineListState> {
     }
   }
 
-  private _toggleRowExpand(rowIndex: number): void {
-    const displayPipelines = produce(this.state.displayPipelines, draft => {
-      draft[rowIndex].expandState =
-        draft[rowIndex].expandState === ExpandState.COLLAPSED
-          ? ExpandState.EXPANDED
-          : ExpandState.COLLAPSED;
-    });
-
-    this.setState({ displayPipelines });
-  }
-
-  private _getExpandedPipelineComponent(rowIndex: number): JSX.Element {
-    const pipeline = this.state.displayPipelines[rowIndex];
-    return (
-      <PipelineVersionList
-        pipelineId={pipeline.id}
-        onError={() => null}
-        {...this.props}
-        selectedIds={this.state.selectedVersionIds[pipeline.id!] || []}
-        noFilterBox={true}
-        onSelectionChange={this._selectionChanged.bind(this, pipeline.id)}
-        disableSorting={false}
-        disablePaging={false}
-      />
-    );
-  }
-
   private async _reload(request: ListRequest): Promise<string> {
-    let response: ApiListPipelinesResponse | null = null;
-    let displayPipelines: DisplayPipeline[];
+    let response: any | null = null;
+    let displayContributors: any[];
     try {
-      response = await Apis.pipelineServiceApi.listPipelines(
-        request.pageToken,
-        request.pageSize,
-        request.sortBy,
-        request.filter,
-      );
-      displayPipelines = response.pipelines || [];
-      displayPipelines.forEach(exp => (exp.expandState = ExpandState.COLLAPSED));
+      response = await Apis.listContributors();
+      displayContributors = response.bindings || [];
+      this.setStateSafe({ displayContributors: displayContributors || [] });
       this.clearBanner();
     } catch (err) {
-      await this.showPageError('Error: failed to retrieve list of pipelines.', err);
+      await this.showPageError('Error: failed to retrieve list of contributors.', err);
     }
-
-    this.setStateSafe({ displayPipelines: (response && response.pipelines) || [] });
 
     return response ? response.next_page_token || '' : '';
   }
-
-  private _nameCustomRenderer: React.FC<CustomRendererProps<string>> = (
-    props: CustomRendererProps<string>,
-  ) => {
-    return (
-      <Tooltip title={props.value || ''} enterDelay={300} placement='top-start'>
-        <Link
-          onClick={e => e.stopPropagation()}
-          className={commonCss.link}
-          to={RoutePage.PIPELINE_DETAILS_NO_VERSION.replace(':' + RouteParams.pipelineId, props.id)}
-        >
-          {props.value || ''}
-        </Link>
-      </Tooltip>
-    );
-  };
 
   // selection changes passed in via "selectedIds" can be
   // (1) changes of selected pipeline ids, and will be stored in "this.state.selectedIds" or
@@ -228,40 +145,9 @@ class PipelineList extends Page<{}, PipelineListState> {
     }
   }
 
-  private async _uploadDialogClosed(
-    confirmed: boolean,
-    name: string,
-    file: File | null,
-    url: string,
-    method: ImportMethod,
-    description?: string,
-  ): Promise<boolean> {
-    if (
-      !confirmed ||
-      (method === ImportMethod.LOCAL && !file) ||
-      (method === ImportMethod.URL && !url)
-    ) {
-      this.setStateSafe({ uploadDialogOpen: false });
-      return false;
-    }
-
-    try {
-      method === ImportMethod.LOCAL
-        ? await Apis.uploadPipeline(name, description || '', file!)
-        : await Apis.pipelineServiceApi.createPipeline({ name, url: { pipeline_url: url } });
-      this.setStateSafe({ uploadDialogOpen: false });
-      this.refresh();
-      return true;
-    } catch (err) {
-      const errorMessage = await errorToMessage(err);
-      this.showErrorDialog('Failed to upload pipeline', errorMessage);
-      return false;
-    }
-  }
-
   private _deepCountDictionary(dict: { [pipelineId: string]: string[] }): number {
     return Object.keys(dict).reduce((count, pipelineId) => count + dict[pipelineId].length, 0);
   }
 }
 
-export default PipelineList;
+export default ContributorList;

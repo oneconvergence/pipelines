@@ -91,7 +91,7 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
       validationError: '',
       userSelectorOpen: false,
       unconfirmedSelectedUser: '',
-      userSelected: 'ansufrancis',
+      userSelected: '',
       userSelectedPermission: 'view',
     };
   }
