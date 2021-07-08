@@ -44,6 +44,7 @@ export enum ButtonKeys {
   RESTORE = 'restore',
   TERMINATE_RUN = 'terminateRun',
   UPLOAD_PIPELINE = 'uploadPipeline',
+  NEW_CONTRIBUTOR = 'newContributor'
 }
 
 export default class Buttons {
@@ -249,6 +250,24 @@ export default class Buttons {
       tooltip: 'Create a new experiment',
     };
     return this;
+  }
+
+  public newContributor(label: string): Buttons {
+    this._map[ButtonKeys.NEW_CONTRIBUTOR] = {
+      action: () => this._addNewContributor(),
+      icon: AddIcon,
+      id: 'newContributorBtn',
+      outlined: true,
+      primary: true,
+      style: { minWidth: 185 },
+      title: label,
+      tooltip: 'Add a new contributor',
+    };
+    return this;
+  }
+
+   private _addNewContributor(): void {
+    this._props.history.push(RoutePage.NEW_CONTRIBUTOR);
   }
 
   public newRun(getExperimentId?: () => string): Buttons {
