@@ -22,7 +22,6 @@ import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import Input from '../atoms/Input';
 import InputAdornment from '@material-ui/core/InputAdornment';
-import { ApiExperiment, ApiResourceType, ApiRelationship } from '../apis/experiment';
 import { Apis, PipelineSortKeys } from '../lib/Apis';
 import { Page, PageProps } from './Page';
 import { RoutePage, QUERY_PARAMS } from '../components/Router';
@@ -34,7 +33,6 @@ import { commonCss, color, padding, fontsize } from '../Css';
 import { logger, errorToMessage } from '../lib/Utils';
 import { NamespaceContext } from 'src/lib/KubeflowClient';
 import ResourceSelector from './ResourceSelector';
-import { ApiPipeline, ApiParameter, ApiPipelineVersion } from '../apis/pipeline';
 import Radio from '@material-ui/core/Radio';
 import RadioGroup from '@material-ui/core/RadioGroup';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
@@ -72,8 +70,6 @@ const css = stylesheet({
 });
 
 export class NewContributor extends Page<{ namespace?: string }, NewContributorState> {
-  private _experimentNameRef = React.createRef<HTMLInputElement>();
-
   private userSelectorColumns = [
     {
       //  customRenderer: NameWithTooltip,
@@ -95,7 +91,7 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
       validationError: '',
       userSelectorOpen: false,
       unconfirmedSelectedUser: '',
-      userSelected: '',
+      userSelected: 'ansufrancis',
       userSelectedPermission: 'view',
     };
   }
@@ -129,7 +125,7 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
           <Input
             value={userSelected}
             required={true}
-            label='User'
+            label='Contributor'
             disabled={true}
             variant='outlined'
             InputProps={{
@@ -265,8 +261,8 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
     this.setState({ isbeingCreated: true }, async () => {
       try {
         console.log('newContributor', newContributor);
-        // const response = await Apis.experimentServiceApi.createExperiment(newExperiment);
-
+        const response = await Apis.addContributor(newContributor);
+        console.log('response', response);
         this.props.history.push(RoutePage.MANAGE_CONTRIBUTORS);
         this.props.updateSnackbar({
           autoHideDuration: 10000,
@@ -287,7 +283,7 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
     const { userSelected } = this.state;
     try {
       if (!userSelected) {
-        throw new Error('User is required');
+        throw new Error('Contributor is required');
       }
       this.setState({ validationError: '' });
     } catch (err) {
