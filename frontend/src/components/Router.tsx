@@ -49,6 +49,8 @@ import NewPipelineVersion from '../pages/NewPipelineVersion';
 import { GettingStarted } from '../pages/GettingStarted';
 import { KFP_FLAGS, Deployments } from '../lib/Flags';
 import FrontendFeatures from 'src/pages/FrontendFeatures';
+import ManageContributors from '../pages/ManageContributors';
+import NewContributor from '../pages/NewContributor';
 
 export type RouteConfig = {
   path: string;
@@ -117,6 +119,8 @@ export const RoutePage = {
   RECURRING_RUN_DETAILS: `/recurringrun/details/:${RouteParams.runId}`,
   START: '/start',
   FRONTEND_FEATURES: '/frontend_features',
+  MANAGE_CONTRIBUTORS: '/manage-users',
+  NEW_CONTRIBUTOR: '/manage-users/new',
 };
 
 export const RoutePageFactory = {
@@ -197,6 +201,8 @@ const Router: React.FC<RouterProps> = ({ configs }) => {
     { path: RoutePage.RUN_DETAILS_WITH_EXECUTION, Component: RunDetails },
     { path: RoutePage.COMPARE, Component: Compare },
     { path: RoutePage.FRONTEND_FEATURES, Component: FrontendFeatures },
+    { path: RoutePage.MANAGE_CONTRIBUTORS, Component: ManageContributors },
+    { path: RoutePage.NEW_CONTRIBUTOR, Component: NewContributor },
   ];
 
   return (
@@ -257,7 +263,6 @@ class RoutedPage extends React.Component<{ route?: RouteConfig }, RouteComponent
       updateToolbar: this._updateToolbar.bind(this),
     };
     const route = this.props.route;
-
     return (
       <div className={classes(commonCss.page)}>
         <Route render={({ ...props }) => <Toolbar {...this.state.toolbarProps} {...props} />} />
