@@ -417,7 +417,7 @@ export class Apis {
     body: any
   ): Promise<any> {
 
-    return await this._fetchAndParse<any>(
+    return await this._fetch(
       '/kfam/v1/bindings',
       undefined,
       undefined,
