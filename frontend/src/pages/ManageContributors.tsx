@@ -55,10 +55,9 @@ class ContributorList extends Page<{}, ContributorListState> {
       actions: buttons
         .newContributor('Add contributor')
         .refresh(this.refresh.bind(this))
-        .deletePipelinesAndPipelineVersions(
+        .deleteContributor(
           () => this.state.selectedIds,
-          () => this.state.selectedVersionIds,
-          (pipelineId, ids) => this._selectionChanged(pipelineId, ids),
+          (ids, status) => this._selectionChanged(ids),
           false /* useCurrentResource */,
         )
         .getToolbarActionMap(),
@@ -75,12 +74,11 @@ class ContributorList extends Page<{}, ContributorListState> {
         sortKey: PipelineSortKeys.NAME,
       },
       { label: 'Permission', flex: 1 },
-      { label: 'Added At', sortKey: PipelineSortKeys.CREATED_AT, flex: 1 },
     ];
     const rows: Row[] = this.state.displayContributors.map(p => {
       return {
-        id: p.user.name!,
-        otherFields: [p.user.name!, p.RoleRef.name!, formatDateString('2021-07-07T05:29:53Z')],
+        id: JSON.stringify(p)!,
+        otherFields: [p.user.name!, p.RoleRef.name!],
       };
     });
 
@@ -91,7 +89,7 @@ class ContributorList extends Page<{}, ContributorListState> {
           columns={columns}
           rows={rows}
           initialSortColumn={PipelineSortKeys.CREATED_AT}
-          updateSelection={this._selectionChanged.bind(this, undefined)}
+          updateSelection={this._selectionChanged.bind(this)}
           selectedIds={this.state.selectedIds}
           reload={this._reload.bind(this)}
           filterLabel='Filter contributors'
@@ -122,31 +120,14 @@ class ContributorList extends Page<{}, ContributorListState> {
     return response ? response.next_page_token || '' : '';
   }
 
-  // selection changes passed in via "selectedIds" can be
-  // (1) changes of selected pipeline ids, and will be stored in "this.state.selectedIds" or
-  // (2) changes of selected pipeline version ids, and will be stored in "selectedVersionIds" with key "pipelineId"
-  private _selectionChanged(pipelineId: string | undefined, selectedIds: string[]): void {
-    if (!!pipelineId) {
-      // Update selected pipeline version ids.
-      this.setStateSafe({
-        selectedVersionIds: { ...this.state.selectedVersionIds, ...{ [pipelineId!]: selectedIds } },
-      });
-      const actions = this.props.toolbarProps.actions;
-      actions[ButtonKeys.DELETE_RUN].disabled =
-        this.state.selectedIds.length < 1 && selectedIds.length < 1;
-      this.props.updateToolbar({ actions });
-    } else {
-      // Update selected pipeline ids.
-      this.setStateSafe({ selectedIds });
-      const selectedVersionIdsCt = this._deepCountDictionary(this.state.selectedVersionIds);
-      const actions = this.props.toolbarProps.actions;
-      actions[ButtonKeys.DELETE_RUN].disabled = selectedIds.length < 1 && selectedVersionIdsCt < 1;
-      this.props.updateToolbar({ actions });
-    }
-  }
-
-  private _deepCountDictionary(dict: { [pipelineId: string]: string[] }): number {
-    return Object.keys(dict).reduce((count, pipelineId) => count + dict[pipelineId].length, 0);
+  private _selectionChanged(selectedIds: string[]): void {
+    const toolbarActions = this.props.toolbarProps.actions;
+    toolbarActions[ButtonKeys.DELETE_CONTRIBUTOR].disabled = selectedIds.length !== 1;
+    this.props.updateToolbar({
+      actions: toolbarActions,
+      breadcrumbs: this.props.toolbarProps.breadcrumbs,
+    });
+    this.setState({ selectedIds });
   }
 }
 
