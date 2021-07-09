@@ -119,8 +119,8 @@ export const RoutePage = {
   RECURRING_RUN_DETAILS: `/recurringrun/details/:${RouteParams.runId}`,
   START: '/start',
   FRONTEND_FEATURES: '/frontend_features',
-  MANAGE_CONTRIBUTORS: '/manage-users',
-  NEW_CONTRIBUTOR: '/manage-users/new',
+  MANAGE_CONTRIBUTORS: '/contributors',
+  NEW_CONTRIBUTOR: '/contributors/new',
 };
 
 export const RoutePageFactory = {
