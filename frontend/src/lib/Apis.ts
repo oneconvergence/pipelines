@@ -418,8 +418,24 @@ export class Apis {
     );
   }
 
+  public static async deleteContributor(
+    body: any
+  ): Promise<any> {
+
+    return await this._fetch(
+      '/kfam/v1/bindings',
+      undefined,
+      undefined,
+      {
+        body: body,
+        method: 'DELETE',
+      },
+    );
+  }
+
   public static async listContributors(): Promise<any> {
-    return this._fetchAndParse("/kfam/v1/bindings?namespace=abikki");
+    const owner = localStorage.getItem('user') || ''
+    return this._fetchAndParse("/kfam/v1/bindings?namespace="+owner);
   }
 
   public static async uploadPipelineVersion(

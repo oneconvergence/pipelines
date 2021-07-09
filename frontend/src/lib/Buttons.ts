@@ -44,7 +44,8 @@ export enum ButtonKeys {
   RESTORE = 'restore',
   TERMINATE_RUN = 'terminateRun',
   UPLOAD_PIPELINE = 'uploadPipeline',
-  NEW_CONTRIBUTOR = 'newContributor'
+  NEW_CONTRIBUTOR = 'newContributor',
+  DELETE_CONTRIBUTOR = 'deleteContributor'
 }
 
 export default class Buttons {
@@ -177,6 +178,23 @@ export default class Buttons {
     return this;
   }
 
+  public deleteContributor(
+    getSelectedIds: () => string[],
+    callback: (selectedIds: string[], success: boolean) => void,
+    useCurrentResource: boolean,
+  ): Buttons {
+    this._map[ButtonKeys.DELETE_CONTRIBUTOR] = {
+      action: () => this._deleteContributor(getSelectedIds(), useCurrentResource, callback),
+      disabled: !useCurrentResource,
+      disabledTitle: useCurrentResource
+        ? undefined
+        : `Select a contributor to delete`,
+      id: 'deleteBtn',
+      title: 'Delete',
+      tooltip: 'Delete',
+    };
+    return this;
+  }
   // Delete pipelines and pipeline versions simultaneously.
   public deletePipelinesAndPipelineVersions(
     getSelectedIds: () => string[],
@@ -479,6 +497,24 @@ export default class Buttons {
       callback,
       'Restore',
       'experiment',
+    );
+  }
+
+  private _deleteContributor(
+    selectedIds: string[],
+    useCurrentResource: boolean,
+    callback: (selectedIds: string[], success: boolean) => void,
+  ): void {
+    this._dialogActionHandler(
+      selectedIds,
+      `Do you want to delete ${
+        selectedIds.length === 1 ? 'this Contributor' : 'these Contributors'
+      }? This action cannot be undone.`,
+      useCurrentResource,
+      id => Apis.deleteContributor(id),
+      callback,
+      'Delete',
+      'contributor',
     );
   }
 
