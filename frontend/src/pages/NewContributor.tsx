@@ -158,7 +158,6 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
                 filterLabel='Filter contributors'
                 listApi={async (...args) => {
                   const response = await Apis.getOnboardedUsers();
-                  console.log('response', response);
                   return {
                     nextPageToken: response.next_page_token || '',
                     resources: response || [],
