@@ -25,7 +25,7 @@ import { StoragePath } from './WorkflowParser';
 import { buildQuery } from './Utils';
 
 const v1beta1Prefix = 'apis/v1beta1';
-const token = localStorage.getItem('token') || ''
+const token = localStorage.getItem('token')
 const apiKey = 'Bearer ' + token
 
 export interface ListRequest {
@@ -134,6 +134,31 @@ export class Apis {
         }
       });
       return res;
+    }
+
+    /**
+    * Get onboarded users from DKube
+    */
+     public static async getOnboardedUsers(): Promise<any> {
+      const token = localStorage.getItem('token');
+      const init = {
+        headers:  {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/keyauth.api.v1+json',
+        'accept': 'application/json',
+        'authorization': token ? 'Bearer ' + token.toString() : ''
+        }
+      };
+      const path = '/dkube/v2/controller/groups/collection';
+      const res = await this._fetch(path , undefined, undefined, init);
+      const groups = JSON.parse(res).data
+      const myGroup = localStorage.getItem("group") || "default"
+      const group = groups.find((g: any) => g.group.name === myGroup)
+      let resp: any = []
+      group && group.users.forEach((element: any) => {
+        resp.push({id:element.user.name,name: element.user.name, description: "Part of group " +group.group.name, created_at: element.user.created_at.start})
+      });
+      return resp;
     }
  
     /**
@@ -373,6 +398,44 @@ export class Apis {
         method: 'POST',
       },
     );
+  }
+  /**
+   * add new contributor
+   */
+  public static async addContributor(
+    body: any
+  ): Promise<any> {
+
+    return await this._fetch(
+      '/kfam/v1/bindings',
+      undefined,
+      undefined,
+      {
+        body: JSON.stringify(body),
+        cache: 'no-cache',
+        method: 'POST',
+      },
+    );
+  }
+
+  public static async deleteContributor(
+    body: any
+  ): Promise<any> {
+
+    return await this._fetch(
+      '/kfam/v1/bindings',
+      undefined,
+      undefined,
+      {
+        body: body,
+        method: 'DELETE',
+      },
+    );
+  }
+
+  public static async listContributors(): Promise<any> {
+    const owner = localStorage.getItem('user') || ''
+    return this._fetchAndParse("/kfam/v1/bindings?namespace="+owner);
   }
 
   public static async uploadPipelineVersion(
