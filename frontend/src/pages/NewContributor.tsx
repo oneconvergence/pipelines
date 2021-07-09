@@ -119,8 +119,7 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
           <div className={commonCss.header}>Contributor details</div>
           {/* TODO: this description needs work. */}
           <div className={css.explanation}>
-            Think of an Experiment as a space that contains the history of all pipelines and their
-            associated runs
+            Add a contributor who you want to have the access to your resources
           </div>
           <Input
             value={userSelected}
@@ -260,9 +259,7 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
 
     this.setState({ isbeingCreated: true }, async () => {
       try {
-        console.log('newContributor', newContributor);
         const response = await Apis.addContributor(newContributor);
-        console.log('response', response);
         this.props.history.push(RoutePage.MANAGE_CONTRIBUTORS);
         this.props.updateSnackbar({
           autoHideDuration: 10000,
