@@ -22,7 +22,6 @@ import { Page } from './Page';
 import { ToolbarProps } from '../components/Toolbar';
 import { classes } from 'typestyle';
 import { commonCss, padding } from '../Css';
-import { formatDateString } from '../lib/Utils';
 
 interface ContributorListState {
   selectedIds: string[];
@@ -75,11 +74,13 @@ class ContributorList extends Page<{}, ContributorListState> {
       },
       { label: 'Permission', flex: 1 },
     ];
-    const rows: Row[] = this.state.displayContributors.map(p => {
-      return {
-        id: JSON.stringify(p)!,
-        otherFields: [p.user.name!, p.RoleRef.name!],
-      };
+    let rows: Row[] = [];
+    this.state.displayContributors.forEach(p => {
+      if (p.RoleRef.name != 'admin')
+        rows.push({
+          id: JSON.stringify(p)!,
+          otherFields: [p.user.name!, p.RoleRef.name!],
+        });
     });
 
     return (
