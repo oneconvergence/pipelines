@@ -372,40 +372,39 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                 className={commonCss.page}
                               >
                                 {sidepanelSelectedTab === SidePaneTab.DKUBE && (
-                                   <div className={commonCss.page}>
-                                     {this.state.dkube && this.state.stage === 'training' && (
-                                       <iframe
-                                         src={
-                                           '/#/ds/jobs/runs/training/user/' +
-                                           this.state.user +
-                                           '/' +
-                                           this.state.jobname +
-                                           '/' +
-                                           this.state.jobid +
-                                           '?tab=summary&iframe=true'
-                                         }
-                                         style={{ height: '100vh' }}
-                                         title={'training'}
-                                       />
-                                     )}
-                                     {this.state.dkube &&
-                                       this.state.stage === 'preprocess' && (
-                                         <iframe
-                                           src={
-                                             '/#/ds/jobs/runs/preprocessing/user/' +
-                                             this.state.user +
-                                             '/' +
-                                             this.state.jobname +
-                                             '/' +
-                                             this.state.jobid +
-                                             '?tab=summary&iframe=true'
-                                           }
-                                           style={{ height: '100vh' }}
-                                           title={'preprocess'}
-                                         />
-                                       )}
-                                   </div>
-                                 )}
+                                  <div className={commonCss.page}>
+                                    {this.state.dkube && this.state.stage === 'training' && (
+                                      <iframe
+                                        src={
+                                          '/#/ds/jobs/runs/training/user/' +
+                                          this.state.user +
+                                          '/' +
+                                          this.state.jobname +
+                                          '/' +
+                                          this.state.jobid +
+                                          '?tab=summary&iframe=true'
+                                        }
+                                        style={{ height: '100vh' }}
+                                        title={'training'}
+                                      />
+                                    )}
+                                    {this.state.dkube && this.state.stage === 'preprocess' && (
+                                      <iframe
+                                        src={
+                                          '/#/ds/jobs/runs/preprocessing/user/' +
+                                          this.state.user +
+                                          '/' +
+                                          this.state.jobname +
+                                          '/' +
+                                          this.state.jobid +
+                                          '?tab=summary&iframe=true'
+                                        }
+                                        style={{ height: '100vh' }}
+                                        title={'preprocess'}
+                                      />
+                                    )}
+                                  </div>
+                                )}
                                 {sidepanelSelectedTab === SidePaneTab.VISUALIZATIONS &&
                                   this.state.selectedNodeDetails &&
                                   this.state.workflow && (
@@ -1084,8 +1083,12 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     try {
       const logSrc = this._getLogger(selectedNodeDetails.id);
       const workflowName = this.state.workflow && this.state.workflow.metadata.name;
-      if (workflowName && logSrc == 'dkubepl') {
-        selectedNodeDetails.logs = await Apis.getPodLogsFromDkube(workflowName, selectedNodeDetails.id, logSrc);
+      if (workflowName && logSrc === 'dkubepl') {
+        selectedNodeDetails.logs = await Apis.getPodLogsFromDkube(
+          workflowName,
+          selectedNodeDetails.id,
+          logSrc,
+        );
       } else {
         selectedNodeDetails.logs = await Apis.getPodLogs(runId, selectedNodeDetails.id, namespace);
       }
