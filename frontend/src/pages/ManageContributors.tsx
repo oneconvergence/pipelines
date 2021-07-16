@@ -107,10 +107,17 @@ class ContributorList extends Page<{}, ContributorListState> {
   }
 
   private async _reload(request: ListRequest): Promise<string> {
+    let user;
+    if (request && request.filter) {
+      const filter = JSON.parse(decodeURIComponent(request.filter));
+      if (filter && filter.predicates && filter.predicates.length) {
+        user = filter.predicates[0].string_value;
+      }
+    }
     let response: any | null = null;
     let displayContributors: any[];
     try {
-      response = await Apis.listContributors();
+      response = await Apis.listContributors(user);
       displayContributors = response.bindings || [];
       this.setStateSafe({ displayContributors: displayContributors || [] });
       this.clearBanner();
