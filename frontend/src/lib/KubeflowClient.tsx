@@ -27,12 +27,34 @@ declare global {
 }
 
 let namespace: string | undefined;
-namespace = localStorage.getItem('user') || undefined
+
+function getQueryParams(qs: string) {
+  const qs1 = qs.split('+').join(' ');
+
+  const params = {};
+  let tokens;
+  const re = /[?&]?([^=]+)=([^&]*)#/g;
+
+  do {
+    tokens = re.exec(qs1);
+    if (tokens) {
+      params[decodeURIComponent(tokens[1])] = decodeURIComponent(tokens[2]);
+    }
+  } while (tokens);
+
+  return params;
+}
+
+if (window.location.href.includes('?ns=')) {
+  const query = window.location.href.split('?')[1];
+  const params = getQueryParams(query);
+  namespace = params["ns"];
+} else {
+  namespace = localStorage.getItem('user') || undefined
+}
+
 logger.verbose("pipeline-ui: setting namespace to ",namespace)
-window.addEventListener('message', (e) => {
-  namespace = (e as CustomEvent).data
-  if (namespace) logger.verbose("pipeline-ui: received message. setting namespace to ",namespace)
-}, false);
+
 let registeredHandler: undefined | ((namespace: string) => void);
 function onNamespaceChanged(handler: (namespace: string) => void) {
   registeredHandler = handler;
