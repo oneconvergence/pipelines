@@ -28,12 +28,18 @@ declare global {
 
 let namespace: string | undefined;
 namespace = localStorage.getItem('user') || undefined
-console.log("pipeline-ui: setting namespace to ",namespace)
+logger.verbose("pipeline-ui: setting namespace to ",namespace)
+window.addEventListener('message', (e) => {
+  namespace = (e as CustomEvent).data
+  if (namespace) logger.verbose("pipeline-ui: received message. setting namespace to ",namespace)
+}, false);
 let registeredHandler: undefined | ((namespace: string) => void);
 function onNamespaceChanged(handler: (namespace: string) => void) {
   registeredHandler = handler;
 }
-
+interface CustomEvent extends Event {
+  data: string
+}
 export function init(): void {
   try {
     // Init method will invoke the callback with the event handler instance
@@ -49,7 +55,7 @@ export function init(): void {
       };
     });
   } catch (err) {
-    logger.verbose('Failed to initialize central dashboard client', err);
+    //logger.verbose('Failed to initialize central dashboard client', err);
   }
 }
 
