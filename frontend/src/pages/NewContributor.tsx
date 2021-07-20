@@ -258,7 +258,7 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
 
     this.setState({ isbeingCreated: true }, async () => {
       try {
-        const response = await Apis.addContributor(newContributor);
+        await Apis.addContributor(newContributor);
         this.props.history.push(RoutePage.MANAGE_CONTRIBUTORS);
         this.props.updateSnackbar({
           autoHideDuration: 10000,

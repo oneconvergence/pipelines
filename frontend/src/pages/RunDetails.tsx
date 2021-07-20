@@ -1096,7 +1096,7 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     try {
       const logSrc = this._getLogger(selectedNodeDetails.id);
       const workflowName = this.state.workflow && this.state.workflow.metadata.name;
-      if (workflowName && logSrc == 'dkubepl') {
+      if (workflowName && logSrc === 'dkubepl') {
         selectedNodeDetails.logs = await Apis.getPodLogsFromDkube(workflowName, selectedNodeDetails.id, logSrc);
       } else {
         selectedNodeDetails.logs = await Apis.getPodLogs(runId, selectedNodeDetails.id, namespace);

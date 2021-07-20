@@ -388,7 +388,7 @@ export class Apis {
     const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
 
     if (project && project["id"]) {
-      pipelineName = "[" + project["value"] + "]" + " - " + pipelineName
+      pipelineName = "[" + project["value"] + "] - " + pipelineName
     }
 
     fd.append('uploadfile', pipelineData, pipelineData.name);

@@ -76,7 +76,7 @@ class ContributorList extends Page<{}, ContributorListState> {
     ];
     let rows: Row[] = [];
     this.state.displayContributors.forEach(p => {
-      if (p.RoleRef.name != 'admin')
+      if (p.RoleRef.name !== 'admin')
         rows.push({
           id: JSON.stringify(p)!,
           otherFields: [p.user.name!, p.RoleRef.name!],
