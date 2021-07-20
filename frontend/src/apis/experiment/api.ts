@@ -537,12 +537,27 @@ export const ExperimentServiceApiFetchParamCreator = function(configuration?: Co
       if (sort_by !== undefined) {
         localVarQueryParameter['sort_by'] = sort_by;
       }
-      const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
 
+      const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
+      let project_filter = null
+      if (project && project["id"]) {
+        project_filter = { "key": "name", "op": "IS_SUBSTRING", "string_value": "[" + project["value"] + "]" }
+      }
       if (filter !== undefined && filter != '') {
+        let temp = JSON.parse(decodeURIComponent(filter))
+        for (let f of temp["predicates"]) {
+          if (f["key"] == "name") {
+            // if use is filtering by name, remove project filter
+            project_filter = null
+            break
+          }
+        }
+        if (project_filter) {
+          temp["predicates"].push(project_filter)
+          filter = encodeURIComponent(JSON.stringify(temp))
+        }
         localVarQueryParameter['filter'] = filter;
       } else if (project && project["id"]) {
-        const project_filter = { "key": "name", "op": "IS_SUBSTRING", "string_value": "[" + project["value"] + "]" }
         localVarQueryParameter['filter'] = encodeURIComponent(JSON.stringify({ "predicates": [project_filter] }))
       }
 
