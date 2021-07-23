@@ -155,8 +155,11 @@ export class Apis {
       const myGroup = localStorage.getItem("group") || "default"
       const group = groups.find((g: any) => g.group.name === myGroup)
       let resp: any = []
+      const response = await this.listContributors()
+      const contributors = (response && response.bindings) || [];
       group && group.users.forEach((element: any) => {
-        resp.push({id:element.user.name,name: element.user.name, description: "Part of group " +group.group.name, created_at: element.user.created_at.start})
+        if(!contributors.find((c: any) => c.user.name === element.user.name))
+          resp.push({id:element.user.name,name: element.user.name, description: "Part of group " +group.group.name, created_at: element.user.created_at.start})
       });
       return resp;
     }
