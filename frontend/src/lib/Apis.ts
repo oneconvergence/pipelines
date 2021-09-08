@@ -433,9 +433,9 @@ export class Apis {
     );
   }
 
-  public static async listContributors(fUser: string): Promise<any> {
+  public static async listContributors(user: string): Promise<any> {
     const owner = localStorage.getItem('user') || ''
-    return this._fetchAndParse("/kfam/v1/bindings?namespace="+owner+(fUser?"&user="+fUser:""));
+    return this._fetchAndParse("/kfam/v1/bindings?namespace="+owner+(user?"&user="+user:""));
   }
 
   public static async uploadPipelineVersion(
