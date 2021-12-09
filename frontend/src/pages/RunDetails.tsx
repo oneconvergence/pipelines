@@ -713,6 +713,10 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       }
       // plus symbol changes enum to number.
       switch (+tab) {
+        case SidePanelTab.DKUBE: {
+          tabNameList.push('DKube');
+          break;
+        }
         case SidePanelTab.INPUT_OUTPUT: {
           tabNameList.push('Input/Output');
           break;
