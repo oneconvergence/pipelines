@@ -148,6 +148,7 @@ interface RunDetailsState {
   loading: boolean;
   stage: string;
   user: string;
+  deployment: string;
 }
 
 export const css = stylesheet({
@@ -206,6 +207,7 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     jobtype: '',
     stage: '',
     user: '',
+    deployment: '',
   };
 
   private readonly AUTO_REFRESH_INTERVAL = 5000;
@@ -394,11 +396,13 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                                     {this.state.dkube && this.state.stage === 'serving' && (
                                       <iframe
                                         src={
-                                          '/#/ds/inferences/user/' +
+                                          '/#/ds/deployments/all/user/' +
                                           this.state.user +
                                           '/' +
                                           this.state.jobname +
-                                          '?tab=inputs&iframe=true'
+                                          '/' +
+                                          this.state.deployment +
+                                          '?tab=details&menu=all&iframe=true'
                                         }
                                         style={{ height: '100vh' }}
                                         title={'serving'}
@@ -1111,9 +1115,11 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
         const obj = JSON.parse(dkube);
         const user = obj.data.parameters.generated.user;
         const jobid = obj.data.parameters.generated.jobid;
+        const deployment = obj.data.parameters.generated.uuid;
         const jobtype = obj.data.parameters.generated.subclass;
         const jobname = obj.data.name;
         this.setStateSafe({
+          deployment: deployment,
           dkube: dkube,
           jobid: jobid,
           jobname: jobname,
