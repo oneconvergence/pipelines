@@ -26,9 +26,9 @@ RUN mkdir -p ./server/dist && \
 
 RUN ./scripts/yarn-licenses.sh
 
-#RUN npm i -D license-checker
-#RUN node gen_licenses . && node gen_licenses server && \
-#    cat dependency-licenses.txt >> server/dependency-licenses.txt
+RUN npm i -D license-checker
+RUN node gen_licenses . && node gen_licenses server && \
+   cat dependency-licenses.txt >> server/dependency-licenses.txt
 
 FROM node:14.18.2-alpine
 
