@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-import React, { useEffect, useState } from 'react';
-import { useQuery } from 'react-query';
-import { ApiRunDetail } from 'src/apis/run';
-import { QUERY_PARAMS } from 'src/components/Router';
 import { FeatureKey, isFeatureEnabled } from 'src/features';
+import React, { useEffect, useState } from 'react';
+
+import { ApiRunDetail } from 'src/apis/run';
 import { Apis } from 'src/lib/Apis';
-import { errorToMessage } from 'src/lib/Utils';
-import { URLParser } from '../lib/URLParser';
 import EnhancedCompareV1 from './CompareV1';
 import EnhancedCompareV2 from './CompareV2';
 import { PageProps } from './Page';
+import { QUERY_PARAMS } from 'src/components/Router';
+import { URLParser } from '../lib/URLParser';
+import { errorToMessage } from 'src/lib/Utils';
+import { useQuery } from 'react-query';
 
 enum CompareVersion {
   V1,

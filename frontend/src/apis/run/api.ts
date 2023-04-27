@@ -178,7 +178,7 @@ export interface ApiPipelineSpec {
    */
   pipeline_manifest?: string;
   /**
-   *
+   * The parameter user provide to inject to the pipeline JSON. If a default value of a parameter exist in the JSON, the value user provided here will replace.
    * @type {Array<ApiParameter>}
    * @memberof ApiPipelineSpec
    */
@@ -658,6 +658,10 @@ export const RunServiceApiFetchParamCreator = function(configuration?: Configura
           'Required parameter body was null or undefined when calling createRun.',
         );
       }
+      const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
+      if (project && project["id"]) {
+        body["name"] = "[" + project["value"] + "]" + " - " + body["name"]
+      }
       const localVarPath = `/apis/v1beta1/runs`;
       const localVarUrlObj = url.parse(localVarPath, true);
       const localVarRequestOptions = Object.assign({ method: 'POST' }, options);
@@ -852,8 +856,27 @@ export const RunServiceApiFetchParamCreator = function(configuration?: Configura
         localVarQueryParameter['resource_reference_key.id'] = resource_reference_key_id;
       }
 
-      if (filter !== undefined) {
+      const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
+      let project_filter = null
+      if (project && project["id"]) {
+        project_filter = { "key": "name", "op": "IS_SUBSTRING", "string_value": "[" + project["value"] + "]" }
+      }
+      if (filter !== undefined && filter != '') {
+        let temp = JSON.parse(decodeURIComponent(filter))
+        for (let f of temp["predicates"]) {
+          if (f["key"] == "name") {
+            // if use is filtering by name, remove project filter
+            project_filter = null
+            break
+          }
+        }
+        if (project_filter) {
+          temp["predicates"].push(project_filter)
+          filter = encodeURIComponent(JSON.stringify(temp))
+        }
         localVarQueryParameter['filter'] = filter;
+      } else if (project && project["id"]) {
+        localVarQueryParameter['filter'] = encodeURIComponent(JSON.stringify({ "predicates": [project_filter] }))
       }
 
       localVarUrlObj.query = Object.assign(

@@ -14,41 +14,45 @@
  * limitations under the License.
  */
 
+import * as React from 'react';
+
+import AllExperimentsAndArchive, {
+  AllExperimentsAndArchiveTab,
+} from '../pages/AllExperimentsAndArchive';
+import AllRunsAndArchive, { AllRunsAndArchiveTab } from '../pages/AllRunsAndArchive';
+import Banner, { BannerProps } from '../components/Banner';
+import { Deployments, KFP_FLAGS } from '../lib/Flags';
+import { Redirect, Route, Switch } from 'react-router-dom';
+import Snackbar, { SnackbarProps } from '@material-ui/core/Snackbar';
+import Toolbar, { ToolbarProps } from './Toolbar';
+import { classes, stylesheet } from 'typestyle';
+
+import AllRecurringRunsList from '../pages/AllRecurringRunsList';
+import ArtifactDetails from '../pages/ArtifactDetails';
+import ArtifactList from '../pages/ArtifactList';
 import Button from '@material-ui/core/Button';
+import Compare from '../pages/Compare';
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogTitle from '@material-ui/core/DialogTitle';
-import Snackbar, { SnackbarProps } from '@material-ui/core/Snackbar';
-import * as React from 'react';
-import { Redirect, Route, Switch } from 'react-router-dom';
-import Compare from 'src/pages/Compare';
-import FrontendFeatures from 'src/pages/FrontendFeatures';
-import RunDetailsRouter from 'src/pages/RunDetailsRouter';
-import { classes, stylesheet } from 'typestyle';
-import Banner, { BannerProps } from '../components/Banner';
-import { commonCss } from '../Css';
-import { Deployments, KFP_FLAGS } from '../lib/Flags';
-import Page404 from '../pages/404';
-import AllExperimentsAndArchive, {
-  AllExperimentsAndArchiveTab,
-} from '../pages/AllExperimentsAndArchive';
-import AllRecurringRunsList from '../pages/AllRecurringRunsList';
-import AllRunsAndArchive, { AllRunsAndArchiveTab } from '../pages/AllRunsAndArchive';
-import ArtifactDetails from '../pages/ArtifactDetails';
-import ArtifactList from '../pages/ArtifactList';
 import ExecutionDetails from '../pages/ExecutionDetails';
 import ExecutionList from '../pages/ExecutionList';
 import ExperimentDetails from '../pages/ExperimentDetails';
+import FrontendFeatures from 'src/pages/FrontendFeatures';
 import { GettingStarted } from '../pages/GettingStarted';
+import ManageContributors from '../pages/ManageContributors';
+import NewContributor from '../pages/NewContributor';
 import NewExperiment from '../pages/NewExperiment';
 import NewPipelineVersion from '../pages/NewPipelineVersion';
 import NewRunSwitcher from '../pages/NewRunSwitcher';
+import Page404 from '../pages/404';
 import PipelineDetails from '../pages/PipelineDetails';
 import PipelineList from '../pages/PipelineList';
 import RecurringRunDetails from '../pages/RecurringRunDetails';
+import RunDetailsRouter from 'src/pages/RunDetailsRouter';
 import SideNav from './SideNav';
-import Toolbar, { ToolbarProps } from './Toolbar';
+import { commonCss } from '../Css';
 
 export type RouteConfig = {
   path: string;
@@ -117,6 +121,8 @@ export const RoutePage = {
   RECURRING_RUN_DETAILS: `/recurringrun/details/:${RouteParams.runId}`,
   START: '/start',
   FRONTEND_FEATURES: '/frontend_features',
+  MANAGE_CONTRIBUTORS: '/contributors',
+  NEW_CONTRIBUTOR: '/contributors/new',
 };
 
 export const RoutePageFactory = {
@@ -197,6 +203,8 @@ const Router: React.FC<RouterProps> = ({ configs }) => {
     { path: RoutePage.RUN_DETAILS_WITH_EXECUTION, Component: RunDetailsRouter },
     { path: RoutePage.COMPARE, Component: Compare },
     { path: RoutePage.FRONTEND_FEATURES, Component: FrontendFeatures },
+    { path: RoutePage.MANAGE_CONTRIBUTORS, Component: ManageContributors },
+    { path: RoutePage.NEW_CONTRIBUTOR, Component: NewContributor },
   ];
 
   return (
@@ -345,6 +353,16 @@ class RoutedPage extends React.Component<{ route?: RouteConfig }, RouteComponent
     this.setState({ dialogProps });
   }
 
+  private _handleDialogClosed(onClick?: () => void): void {
+    this.setState({ dialogProps: { open: false } });
+    if (onClick) {
+      onClick();
+    }
+    if (this.state.dialogProps.onClose) {
+      this.state.dialogProps.onClose();
+    }
+  }
+
   private _updateToolbar(newToolbarProps: Partial<ToolbarProps>): void {
     const toolbarProps = Object.assign(this.state.toolbarProps, newToolbarProps);
     this.setState({ toolbarProps });
@@ -360,15 +378,6 @@ class RoutedPage extends React.Component<{ route?: RouteConfig }, RouteComponent
     this.setState({ snackbarProps });
   }
 
-  private _handleDialogClosed(onClick?: () => void): void {
-    this.setState({ dialogProps: { open: false } });
-    if (onClick) {
-      onClick();
-    }
-    if (this.state.dialogProps.onClose) {
-      this.state.dialogProps.onClose();
-    }
-  }
   private _handleSnackbarClose(): void {
     this.setState({ snackbarProps: { open: false, message: '' } });
   }

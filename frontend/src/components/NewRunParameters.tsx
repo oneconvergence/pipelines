@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
+import * as React from 'react';
+
+import { classes, stylesheet } from 'typestyle';
+import { color, commonCss, spacing } from '../Css';
+
+import { ApiParameter } from '../apis/pipeline';
 import Button from '@material-ui/core/Button';
+import Editor from './Editor';
 import InputAdornment from '@material-ui/core/InputAdornment';
 import TextField from '@material-ui/core/TextField';
-import * as React from 'react';
-import { classes, stylesheet } from 'typestyle';
-import { ApiParameter } from '../apis/pipeline';
-import { color, commonCss, spacing } from '../Css';
-import Editor from './Editor';
 
 export interface NewRunParametersProps {
   initialParams: ApiParameter[];
@@ -55,7 +57,9 @@ const css = stylesheet({
 
 class NewRunParameters extends React.Component<NewRunParametersProps> {
   public render(): JSX.Element | null {
-    const { handleParamChange, initialParams, titleMessage } = this.props;
+    const { handleParamChange, initialParams, titleMessage } = this.props;  
+    let project = localStorage.getItem('activeProject');
+    if (project) project = JSON.parse(project)
 
     return (
       <div>
@@ -64,6 +68,7 @@ class NewRunParameters extends React.Component<NewRunParametersProps> {
         {!!initialParams.length && (
           <div>
             {initialParams.map((param, i) => {
+              if (param.name === 'project_id' && project && project["id"]) param.value = project["id"]
               return (
                 <ParamEditor
                   key={i}

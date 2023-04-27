@@ -14,57 +14,32 @@
  * limitations under the License.
  */
 
-import CircularProgress from '@material-ui/core/CircularProgress';
-import InfoIcon from '@material-ui/icons/InfoOutlined';
-import { flatten } from 'lodash';
 import * as React from 'react';
-import { Link, Redirect } from 'react-router-dom';
-import { ExternalLink } from 'src/atoms/ExternalLink';
-import InputOutputTab from 'src/components/tabs/InputOutputTab';
-import { MetricsTab } from 'src/components/tabs/MetricsTab';
-import { GkeMetadata, GkeMetadataContext } from 'src/lib/GkeMetadata';
-import { useNamespaceChangeEvent } from 'src/lib/KubeflowClient';
-import { ExecutionHelpers, getExecutionsFromContext, getRunContext } from 'src/mlmd/MlmdUtils';
-import { isV2Pipeline } from 'src/lib/v2/WorkflowUtils';
-import { Context, Execution } from 'src/third_party/mlmd';
-import { classes, stylesheet } from 'typestyle';
+
+import { ApiRun, ApiRunStorageState } from '../apis/run';
+import { ApiVisualization, ApiVisualizationType } from '../apis/visualization';
 import {
   NodePhase as ArgoNodePhase,
   NodeStatus,
   Workflow,
 } from '../third_party/mlmd/argo_template';
-import { ApiExperiment } from '../apis/experiment';
-import { ApiRun, ApiRunStorageState } from '../apis/run';
-import { ApiVisualization, ApiVisualizationType } from '../apis/visualization';
-import Hr from '../atoms/Hr';
-import MD2Tabs from '../atoms/MD2Tabs';
-import Separator from '../atoms/Separator';
 import Banner, { Mode } from '../components/Banner';
-import CompareTable from '../components/CompareTable';
-import DetailsTable from '../components/DetailsTable';
-import Graph from '../components/Graph';
-import LogViewer from '../components/LogViewer';
-import MinioArtifactPreview from '../components/MinioArtifactPreview';
-import PlotCard from '../components/PlotCard';
-import { PodEvents, PodInfo } from '../components/PodYaml';
-import ReduceGraphSwitch from '../components/ReduceGraphSwitch';
-import { RoutePage, RoutePageFactory, RouteParams } from '../components/Router';
-import SidePanel from '../components/SidePanel';
-import { ToolbarProps } from '../components/Toolbar';
-import { HTMLViewerConfig } from '../components/viewers/HTMLViewer';
+import Buttons, { ButtonKeys } from '../lib/Buttons';
+import { Context, Execution } from 'src/third_party/mlmd';
+import { ExecutionHelpers, getExecutionsFromContext, getRunContext } from 'src/mlmd/MlmdUtils';
+import { GkeMetadata, GkeMetadataContext } from 'src/lib/GkeMetadata';
+import { KeyValue, compareGraphEdges, transitiveReduction } from '../lib/StaticGraphParser';
+import { Link, Redirect } from 'react-router-dom';
+import { NodePhase, hasFinished } from '../lib/StatusUtils';
+import { Page, PageProps } from './Page';
 import { PlotType, ViewerConfig } from '../components/viewers/Viewer';
-import { componentMap } from '../components/viewers/ViewerContainer';
+import { PodEvents, PodInfo } from '../components/PodYaml';
+import { RoutePage, RoutePageFactory, RouteParams } from '../components/Router';
 import VisualizationCreator, {
   VisualizationCreatorConfig,
 } from '../components/viewers/VisualizationCreator';
+import { classes, stylesheet } from 'typestyle';
 import { color, commonCss, fonts, fontsize, padding } from '../Css';
-import { Apis } from '../lib/Apis';
-import Buttons, { ButtonKeys } from '../lib/Buttons';
-import CompareUtils from '../lib/CompareUtils';
-import { OutputArtifactLoader } from '../lib/OutputArtifactLoader';
-import RunUtils from '../lib/RunUtils';
-import { compareGraphEdges, KeyValue, transitiveReduction } from '../lib/StaticGraphParser';
-import { hasFinished, NodePhase } from '../lib/StatusUtils';
 import {
   decodeCompressedNodes,
   errorToMessage,
@@ -74,12 +49,40 @@ import {
   logger,
   serviceErrorToString,
 } from '../lib/Utils';
-import WorkflowParser from '../lib/WorkflowParser';
+
+import { ApiExperiment } from '../apis/experiment';
+import { Apis } from '../lib/Apis';
+import CircularProgress from '@material-ui/core/CircularProgress';
+import CompareTable from '../components/CompareTable';
+import CompareUtils from '../lib/CompareUtils';
+import DetailsTable from '../components/DetailsTable';
 import { ExecutionDetailsContent } from './ExecutionDetails';
-import { Page, PageProps } from './Page';
+import { ExternalLink } from 'src/atoms/ExternalLink';
+import Graph from '../components/Graph';
+import { HTMLViewerConfig } from '../components/viewers/HTMLViewer';
+import Hr from '../atoms/Hr';
+import InfoIcon from '@material-ui/icons/InfoOutlined';
+import InputOutputTab from 'src/components/tabs/InputOutputTab';
+import LogViewer from '../components/LogViewer';
+import MD2Tabs from '../atoms/MD2Tabs';
+import { MetricsTab } from 'src/components/tabs/MetricsTab';
+import MinioArtifactPreview from '../components/MinioArtifactPreview';
+import { OutputArtifactLoader } from '../lib/OutputArtifactLoader';
+import PlotCard from '../components/PlotCard';
+import ReduceGraphSwitch from '../components/ReduceGraphSwitch';
+import RunUtils from '../lib/RunUtils';
+import Separator from '../atoms/Separator';
+import SidePanel from '../components/SidePanel';
+import { ToolbarProps } from '../components/Toolbar';
+import WorkflowParser from '../lib/WorkflowParser';
+import { componentMap } from '../components/viewers/ViewerContainer';
+import { flatten } from 'lodash';
+import { isV2Pipeline } from 'src/lib/v2/WorkflowUtils';
 import { statusToIcon } from './Status';
+import { useNamespaceChangeEvent } from 'src/lib/KubeflowClient';
 
 export enum SidePanelTab {
+  DKUBE,
   INPUT_OUTPUT,
   VISUALIZATIONS,
   TASK_DETAILS,
@@ -139,6 +142,15 @@ interface RunDetailsState {
   mlmdExecutions?: Execution[];
   showReducedGraph?: boolean;
   namespace?: string;
+  jobid: string;
+  dkube: any;
+  platform: string;
+  jobname: string;
+  jobtype: string;
+  loading: boolean;
+  stage: string;
+  user: string;
+  deployment: string;
 }
 
 export const css = stylesheet({
@@ -185,10 +197,19 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     selectedTab: 0,
     sidepanelBannerMode: 'warning',
     sidepanelBusy: false,
-    sidepanelSelectedTab: SidePanelTab.INPUT_OUTPUT,
+    sidepanelSelectedTab: SidePanelTab.DKUBE,
     mlmdRunContext: undefined,
     mlmdExecutions: undefined,
     showReducedGraph: false,
+    dkube: null,
+    loading: false,
+    platform: '',
+    jobid: '',
+    jobname: '',
+    jobtype: '',
+    stage: '',
+    user: '',
+    deployment: '',
   };
 
   private readonly AUTO_REFRESH_INTERVAL = 5000;
@@ -341,7 +362,56 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
                               <div
                                 data-testid='run-details-node-details'
                                 className={commonCss.page}
-                              >
+                              > 
+                              {sidepanelSelectedTab === SidePanelTab.DKUBE && (
+                                <div className={commonCss.page}>
+                                  {this.state.dkube && this.state.stage === 'training' && (
+                                    <iframe
+                                      src={
+                                        '/#/ds/jobs/runs/training/user/' +
+                                        this.state.user +
+                                        '/' +
+                                        this.state.jobname +
+                                        '/' +
+                                        this.state.jobid +
+                                        '?tab=summary&iframe=true'
+                                      }
+                                      style={{ height: '100vh' }}
+                                      title={'training'}
+                                    />
+                                  )}
+                                  {this.state.dkube && this.state.stage === 'preprocess' && (
+                                      <iframe
+                                        src={
+                                          '/#/ds/jobs/runs/preprocessing/user/' +
+                                          this.state.user +
+                                          '/' +
+                                          this.state.jobname +
+                                          '/' +
+                                          this.state.jobid +
+                                          '?tab=summary&iframe=true'
+                                        }
+                                        style={{ height: '100vh' }}
+                                        title={'preprocess'}
+                                      />
+                                    )}
+                                 {this.state.dkube && this.state.stage === 'serving' && (
+                                   <iframe
+                                     src={
+                                          '/#/ds/deployments/all/user/' +
+                                       this.state.user +
+                                       '/' +
+                                       this.state.jobname +
+                                          '/' +
+                                          this.state.deployment +
+                                          '?tab=details&menu=all&iframe=true'
+                                     }
+                                     style={{ height: '100vh' }}
+                                     title={'serving'}
+                                   />
+                                 )}
+                                </div>
+                              )}
                                 {sidepanelSelectedTab === SidePanelTab.VISUALIZATIONS &&
                                   this.state.selectedNodeDetails &&
                                   this.state.workflow &&
@@ -649,6 +719,10 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       }
       // plus symbol changes enum to number.
       switch (+tab) {
+        case SidePanelTab.DKUBE: {
+          tabNameList.push('DKube');
+          break;
+        }
         case SidePanelTab.INPUT_OUTPUT: {
           tabNameList.push('Input/Output');
           break;
@@ -996,11 +1070,72 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       : [];
   }
 
+    private _getLogger(id: string): string {
+    const node = this.state.workflow && this.state.workflow.status.nodes[id];
+    const template =
+      node &&
+      this.state.workflow &&
+      this.state.workflow.spec &&
+      this.state.workflow.spec.templates &&
+      this.state.workflow.spec.templates.find(
+        t => t.name.toLowerCase() === node.displayName.toLowerCase(),
+      );
+    const labels = template && template.metadata && template.metadata.labels;
+    return (labels && labels.logger && labels.logger) || '';
+  }
+
   private async _selectNode(id: string): Promise<void> {
     this.setStateSafe(
       { selectedNodeDetails: { id } },
       async () => await this._loadSidePaneTab(this.state.sidepanelSelectedTab),
     );
+    const node = this.state.workflow && this.state.workflow.status.nodes[id];
+    const template =
+      node &&
+      this.state.workflow &&
+      this.state.workflow.spec &&
+      this.state.workflow.spec.templates &&
+      this.state.workflow.spec.templates.find(
+        t => t.name.toLowerCase() === node.displayName.toLowerCase(),
+      );
+    const labels = template && template.metadata && template.metadata.labels;
+    if (
+      node &&
+      labels &&
+      labels.platform &&
+      labels.platform.toLowerCase() === 'dkube' &&
+      (labels.stage === 'training' || labels.stage === 'preprocess' || labels.stage === 'serving')
+    ) {
+      this.setStateSafe({
+        dkube: null,
+        loading: true,
+        platform: labels.platform.toLowerCase(),
+        stage: labels.stage,
+      });
+      try {
+        const dkube = await Apis.getDkubeJobInfo(node.id);
+        const obj = JSON.parse(dkube);
+        const user = obj.data.parameters.generated.user;
+        const jobid = obj.data.parameters.generated.jobid;
+        const deployment = obj.data.parameters.generated.uuid;
+        const jobtype = obj.data.parameters.generated.subclass;
+        const jobname = obj.data.name;
+        this.setStateSafe({
+          deployment: deployment,
+          dkube: dkube,
+          jobid: jobid,
+          jobname: jobname,
+          jobtype: jobtype,
+          loading: false,
+          user: user,
+        });
+      } catch (err) {
+        this.setStateSafe({ loading: false });
+        logger.error('Error getting DKube job details');
+      }
+    } else {
+      this.setStateSafe({ dkube: null, loading: false });
+    }
   }
 
   private async _loadSidePaneTab(tab: SidePanelTab): Promise<void> {
@@ -1058,7 +1193,13 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
     let logsBannerMode = '' as Mode;
 
     try {
-      selectedNodeDetails.logs = await Apis.getPodLogs(runId, selectedNodeDetails.id, namespace);
+      const logSrc = this._getLogger(selectedNodeDetails.id);
+      const workflowName = this.state.workflow && this.state.workflow.metadata.name;
+      if (workflowName && logSrc === 'dkubepl') {
+        selectedNodeDetails.logs = await Apis.getPodLogsFromDkube(workflowName, selectedNodeDetails.id, logSrc);
+      } else {
+        selectedNodeDetails.logs = await Apis.getPodLogs(runId, selectedNodeDetails.id, namespace);
+      }
     } catch (err) {
       let errMsg = await errorToMessage(err);
       logsBannerMessage = 'Failed to retrieve pod logs.';
@@ -1073,7 +1214,6 @@ class RunDetails extends Page<RunDetailsInternalProps, RunDetailsState> {
       } else {
         logsBannerMode = 'error';
       }
-
       logsBannerAdditionalInfo += 'Error response: ' + errMsg;
     }
 
