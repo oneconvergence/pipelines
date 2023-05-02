@@ -49,6 +49,8 @@ import PipelineList from '../pages/PipelineList';
 import RecurringRunDetails from '../pages/RecurringRunDetails';
 import SideNav from './SideNav';
 import Toolbar, { ToolbarProps } from './Toolbar';
+import ManageContributors from '../pages/ManageContributors';
+import NewContributor from '../pages/NewContributor';
 
 export type RouteConfig = {
   path: string;
@@ -117,6 +119,8 @@ export const RoutePage = {
   RECURRING_RUN_DETAILS: `/recurringrun/details/:${RouteParams.runId}`,
   START: '/start',
   FRONTEND_FEATURES: '/frontend_features',
+  MANAGE_CONTRIBUTORS: '/contributors',
+  NEW_CONTRIBUTOR: '/contributors/new',
 };
 
 export const RoutePageFactory = {
@@ -197,6 +201,8 @@ const Router: React.FC<RouterProps> = ({ configs }) => {
     { path: RoutePage.RUN_DETAILS_WITH_EXECUTION, Component: RunDetailsRouter },
     { path: RoutePage.COMPARE, Component: Compare },
     { path: RoutePage.FRONTEND_FEATURES, Component: FrontendFeatures },
+    { path: RoutePage.MANAGE_CONTRIBUTORS, Component: ManageContributors },
+    { path: RoutePage.NEW_CONTRIBUTOR, Component: NewContributor }
   ];
 
   return (

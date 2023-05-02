@@ -308,7 +308,7 @@ export interface ApiPipelineSpec {
    */
   pipeline_manifest?: string;
   /**
-   *
+   * The parameter user provide to inject to the pipeline JSON. If a default value of a parameter exist in the JSON, the value user provided here will replace.
    * @type {Array<ApiParameter>}
    * @memberof ApiPipelineSpec
    */
