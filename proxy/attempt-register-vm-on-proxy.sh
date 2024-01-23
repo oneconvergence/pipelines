@@ -61,7 +61,7 @@ INSTANCE_ZONE="${INSTANCE_ZONE##/*/}"
 if [[ -z "${PROXY_URL}" ]]; then
   # Get latest Proxy server URL
   wget https://storage.googleapis.com/ml-pipeline/proxy-agent-config.json
-  PROXY_URL=$(python ${DIR}/get_proxy_url.py --config-file-path "proxy-agent-config.json" --location "${INSTANCE_ZONE}" --version "latest")
+  PROXY_URL=$(python3 ${DIR}/get_proxy_url.py --config-file-path "proxy-agent-config.json" --location "${INSTANCE_ZONE}" --version "latest")
 fi
 if [[ -z "${PROXY_URL}" ]]; then
     echo "Proxy URL for the zone ${INSTANCE_ZONE} no found, exiting."
@@ -82,7 +82,7 @@ echo "Backend id: ${BACKEND_ID}"
 # Store the registration information in a ConfigMap
 PATCH_TEMP='{"data": {"Hostname":"'${HOSTNAME}'","ProxyUrl":"'${PROXY_URL}'","BackendId":"'${BACKEND_ID}'"}}'
 PATCH_JSON=$(printf "${PATCH_TEMP}" "${HOSTNAME}" "${PROXY_URL}" "${BACKEND_ID}")
-echo "PACTH_JSON: ${PATCH_JSON}"
+echo "PATCH_JSON: ${PATCH_JSON}"
 
 kubectl patch configmap/inverse-proxy-config \
     --type merge \

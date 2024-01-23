@@ -103,7 +103,8 @@ if you only want to use or contribute to this repo.
 
     ```bash
     git checkout $COMMIT_SHA
-    git checkout -b release-$MINOR_VERSION
+    BRANCH=release-$MINOR_VERSION
+    git checkout -b $BRANCH
     git push upstream HEAD
     ```
 
@@ -112,7 +113,13 @@ if you only want to use or contribute to this repo.
 Do the following things before a release:
 1. **(Do this step only when releasing from a NON-master release branch)**
 
-    cherry pick all merged PRs with `cherrypick-approved` label:
+    Note: Instead of following this step to cherry pick all PRs, you can also manually cherry pick commits from master branch to release branch, if the number of PRs to cherry pick is minimal. Command for manual cherry pick:
+
+    ```
+    git cherry-pick <commit-id>
+    ```
+
+    If you want to use script to cherry pick all merged PRs with `cherrypick-approved` label:
     - Search all merged PRs with `cherrypick-approved`
         label, but no `cherrypicked` label using
         [this link](https://github.com/kubeflow/pipelines/pulls?q=is%3Apr+label%3Acherrypick-approved+-label%3Acherrypicked+is%3Aclosed+sort%3Aupdated-asc)
@@ -121,7 +128,7 @@ Do the following things before a release:
 
         NOTE: if there are merge conflicts for a PR, ask the PR author or area OWNER
         to create a cherry pick PR by themselves following other two options.
-    - `git push upstream release-$VERSION` directly to the release branch.
+    - `git push upstream $BRANCH` directly to the release branch.
 
     There's an automated script that can help you do the above:
 
@@ -164,7 +171,7 @@ Do the following things before a release:
 
 ![How to very cloudbuild and postsubmit status](release-status-check.png)
 
-If not, contact the KFP team to determine if the failure(s) would block the release.
+If not, contact the KFP team to determine if the failure(s) would block the release. You can also retry the failed job by opening the detail page of prow job, and click the refresh button next ot the job title.
 
 ### Releasing from release branch
 
@@ -177,7 +184,7 @@ Note, when releasing from master, all the below mentions of "release branch" mea
     - `1.0.1`
     - `1.1.0`
     - ...
-    Contact @Bobgy if you are not sure what next version should be.
+    Set the version by using `VERSION=<version-value>`. Contact @chensun if you are not sure what next version should be.
 
 1. Update all version refs in release branch by
 
@@ -188,12 +195,11 @@ Note, when releasing from master, all the below mentions of "release branch" mea
     It will prompt you whether to push it to release branch. Press `y` and hit `Enter`.
 
     Note, the script will clone kubeflow/pipelines repo into a temporary location on your computer, make those changes and attempt to push to upstream, so that it won't interfere with your current git repo.
-    
+
     If you see error "docker.sock: connect: permission error", you need to [allow managing docker as a non-root user](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
 
 1. View related cloudbuild jobs' statuses by clicking the latest commit's status icon
-in the release branch. The page will look like <https://github.com/kubeflow/pipelines/runs/775788343>.
-Refer to the above screenshot to find the page.
+in the release branch. Refer to the screenshot below to find the page.
 
 1. Wait and make sure the `build-each-commit` cloudbuild job that builds all images
 in gcr.io/ml-pipeline-test succeeded. If it fails, please click "View more details
@@ -222,18 +228,19 @@ and then "Retry", because after waiting for previous step, artifacts are now rea
     tests start right after the commit is in GitHub repo, but some artifacts they depend on are still
     being built by the processes in these two steps.
 1. Search "PyPI" in Google internal release doc for getting password of kubeflow-pipelines user.
+
 1. Release `kfp-server-api` python packages to PyPI.
 
     ```bash
     git checkout $BRANCH
-    git pull upstream
-    cd backend/api/python_http_client
+    git pull upstream $BRANCH
+    cd backend/api/v2beta1/python_http_client
     rm -r dist
     python3 setup.py --quiet sdist
     python3 -m twine upload --username kubeflow-pipelines dist/*
     ```
 
-1. Release `kfp` python packages to PyPI.
+1. Release `kfp` python packages to PyPI. (Note: Please skip this step for backend release, this step will be handled by SDK release.)
 
     ```bash
     pip3 install twine --user
@@ -255,7 +262,7 @@ fill in the description. Detailed steps:
        <pre>
        To deploy Kubeflow Pipelines in an existing cluster, follow the instruction in [here](https://www.kubeflow.org/docs/pipelines/standalone-deployment-gcp/) or via UI [here](https://console.cloud.google.com/ai-platform/pipelines)
 
-       Install python SDK (python 3.6 above) by running:
+       Install python SDK (python 3.7 above) by running:
 
        ```bash
        python3 -m pip install kfp kfp-server-api --upgrade
@@ -268,15 +275,19 @@ fill in the description. Detailed steps:
        ***This is a prerelease*** checkbox in the GitHub release UI.
 
        <pre>
-       To deploy Kubeflow Pipelines in an existing cluster, follow the instruction in [here](https://www.kubeflow.org/docs/pipelines/standalone-deployment-gcp/).
+        To deploy Kubeflow Pipelines in an existing cluster, follow the instruction in [here](https://www.kubeflow.org/docs/pipelines/standalone-deployment-gcp/).
 
-       Install python SDK (python 3.6 above) by running:
+        Install kfp-server-api package (python 3.7 above) by running:
 
-       ```bash
-       python3 -m pip install kfp kfp-server-api --pre --upgrade
-       ```
+        ```bash
+        python3 -m pip install kfp-server-api==$VERSION --upgrade
+        ```
 
-       See the [Change Log](https://github.com/kubeflow/pipelines/blob/$VERSION/CHANGELOG.md)
+        Refer to:
+        * [Upgrade Notes with notices and breaking changes](https://www.kubeflow.org/docs/components/pipelines/installation/upgrade/)
+        * [Change Log](https://github.com/kubeflow/pipelines/blob/$VERSION/CHANGELOG.md)
+
+        NOTE, kfp python SDK is **NOT** included and released separately.
        </pre>
 
 1. **(Do this step only when releasing from a NON-master release branch)**
@@ -297,7 +308,7 @@ Update master branch to the same version and include latest changelog:
     git commit -m "chore(release): bump version to $VERSION on master branch"
     ```
 
-1. If current release is not a prerelease, create a PR to update version in kubeflow documentation website: 
+1. If current release is not a prerelease, create a PR to update version in kubeflow documentation website:
 <https://github.com/kubeflow/website/blob/master/layouts/shortcodes/pipelines/latest-version.html>
 
    Note, there **MUST NOT** be a line ending in the file. Editing on GitHub always add a line ending
@@ -309,6 +320,8 @@ Update master branch to the same version and include latest changelog:
    ```
 
    and create a PR to update the version, e.g. <https://github.com/kubeflow/website/pull/1942>.
+
+1. Follow [Upgrade KFP](https://github.com/kubeflow/testing/tree/master/test-infra/kfp) instruction to upgrade KFP manifests in test-infra.
 
 ## Release Process Development
 

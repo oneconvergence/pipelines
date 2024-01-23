@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2019 The Kubeflow Authors
+# Copyright 2019-2023 The Kubeflow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Notice: caching is tricky when recursion is involved. Please be careful and 
+# Notice: caching is tricky when recursion is involved. Please be careful and
 # set proper max_cache_staleness in case of infinite loop.
 
-import kfp
-from kfp import dsl
+from kfp import dsl, compiler
 
 
 def flip_coin_op():
@@ -72,4 +71,4 @@ def flipcoin():
 
 
 if __name__ == '__main__':
-    kfp.compiler.Compiler().compile(flipcoin, __file__ + '.yaml')
+    compiler.Compiler().compile(flipcoin, __file__ + '.yaml')

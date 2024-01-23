@@ -14,14 +14,14 @@ NOTE: the following steps will push argo images to gcr.io/ml-pipeline.
 Prerequisites:
 
 * Be an admin to gcr.io/ml-pipeline.
-* Install go-licenses/v2 from [Bobgy's current release](https://github.com/Bobgy/go-licenses/releases/tag/v0.0.0-2021-06-23). Make sure the tool is available in PATH.
+* Install go-licenses via [this script](../../hack/install-go-licenses.sh). Make sure the tool is available in PATH.
 
 Instructions:
 
 1. Set version of argo you want to upgrade to, for example:
 
     ```bash
-    ARGO_TAG=v3.1.6
+    ARGO_TAG=v3.3.10
     ```
 
 1. ```bash
@@ -44,12 +44,14 @@ Instructions:
 
     The `release.sh` script does a few things:
     
-    * Use [github.com/Bobgy/go-licenses/v2](https://github.com/Bobgy/go-licenses/tree/main/v2) to prepare NOTICES folder for argo images.
+    * Use go-licenses tool to prepare NOTICES folder for argo images.
     * Build license compliant argo images.
     * Push them to `gcr.io/ml-pipeline/argoexec:${ARGO_TAG}-license-compliance` and
     `gcr.io/ml-pipeline/workflow-controller:${ARGO_TAG}-license-compliance`.
 
 1. Update [manifests](../../manifests) and other places in the code base that still uses the old argo image tag.
+    * Upgrade [Argo upstream manifests](https://github.com/kubeflow/pipelines/blob/master/manifests/kustomize/third-party/argo/README.md#upgrade-argo).
+    * Search for the old argo versions in the repo and update them to new versions based on the reference.
 
 1. Commit these changes to a PR.
 

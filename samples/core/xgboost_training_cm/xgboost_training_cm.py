@@ -15,18 +15,17 @@
 
 
 import json
-import kfp
-from kfp import components
-from kfp import dsl
+from kfp.deprecated import dsl, compiler, components
+
 import os
 import subprocess
 
 diagnose_me_op = components.load_component_from_url(
     'https://raw.githubusercontent.com/kubeflow/pipelines/566dddfdfc0a6a725b6e50ea85e73d8d5578bbb9/components/diagnostics/diagnose_me/component.yaml')
 
-confusion_matrix_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/1.7.0/components/local/confusion_matrix/component.yaml')
+confusion_matrix_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/1.8.0-alpha.0/components/local/confusion_matrix/component.yaml')
 
-roc_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/1.7.0/components/local/roc/component.yaml')
+roc_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/1.8.0-alpha.0/components/local/roc/component.yaml')
 
 dataproc_create_cluster_op = components.load_component_from_url(
     'https://raw.githubusercontent.com/kubeflow/pipelines/1.7.0-rc.3/components/gcp/dataproc/create_cluster/component.yaml')
@@ -229,14 +228,14 @@ def xgb_train_pipeline(
     transform_output_eval = os.path.join(output_template, 'eval', 'part-*')
     train_output = os.path.join(output_template, 'train_output')
     predict_output = os.path.join(output_template, 'predict_output')
-    
+
     _diagnose_me_op = diagnose_me_op(
         bucket=output,
         execution_mode=diagnostic_mode,
-        project_id=project, 
+        project_id=project,
         target_apis=required_apis,
         quota_check=quota_check)
-    
+
     with dsl.ExitHandler(exit_op=dataproc_delete_cluster_op(
         project_id=project,
         region=region,
@@ -310,4 +309,4 @@ def xgb_train_pipeline(
         ).after(_predict_op)
 
 if __name__ == '__main__':
-    kfp.compiler.Compiler().compile(xgb_train_pipeline, __file__ + '.yaml')
+    compiler.Compiler().compile(xgb_train_pipeline, __file__ + '.yaml')

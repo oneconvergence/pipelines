@@ -12,17 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+import unittest
 import kfp
-from .loop_parameter import my_pipeline
-from ...test.util import run_pipeline_func, TestCase, NEEDS_A_FIX
+import kfp_server_api
+from loop_parameter import my_pipeline
+from kfp.samples.test.utils import KfpTask, debug_verify, run_pipeline_func, TestCase
+
+
+def verify(t: unittest.TestCase, run: kfp_server_api.ApiRun,
+           tasks: dict[str, KfpTask], **kwargs):
+    t.assertEqual(run.status, 'Succeeded')
+    # assert DAG structure
+    t.assertCountEqual(['generate-op', 'print-op', 'for-loop-1'], tasks.keys())
+    # assert all iteration outputs
+    t.assertCountEqual(['110', '220', '330', '440'], [
+        x.children['print-op-2'].outputs.parameters['Output']
+        for x in tasks['for-loop-1'].children.values()
+    ])
+
 
 run_pipeline_func([
     TestCase(
         pipeline_func=my_pipeline,
-        mode=kfp.dsl.PipelineExecutionMode.V1_LEGACY,
-    ),
-    TestCase(
-        pipeline_func=my_pipeline,
-        mode=kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE,
-    ),
+        mode=kfp.dsl.PipelineExecutionMode.V2_ENGINE,
+        verify_func=verify),
 ])

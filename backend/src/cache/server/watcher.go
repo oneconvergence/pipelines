@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"reflect"
 	"strconv"
 	"time"
@@ -19,9 +20,10 @@ import (
 )
 
 const (
-	ArgoCompleteLabelKey   string = "workflows.argoproj.io/completed"
-	MetadataExecutionIDKey string = "pipelines.kubeflow.org/metadata_execution_id"
-	MaxCacheStalenessKey   string = "pipelines.kubeflow.org/max_cache_staleness"
+	ArgoWorkflowTemplateEnvKey string = "ARGO_TEMPLATE"
+	ArgoCompleteLabelKey       string = "workflows.argoproj.io/completed"
+	MetadataExecutionIDKey     string = "pipelines.kubeflow.org/metadata_execution_id"
+	MaxCacheStalenessKey       string = "pipelines.kubeflow.org/max_cache_staleness"
 )
 
 func WatchPods(ctx context.Context, namespaceToWatch string, clientManager ClientManagerInterface) {
@@ -66,18 +68,31 @@ func WatchPods(ctx context.Context, namespaceToWatch string, clientManager Clien
 			executionOutputMap[MetadataExecutionIDKey] = pod.ObjectMeta.Labels[MetadataExecutionIDKey]
 			executionOutputJSON, _ := json.Marshal(executionOutputMap)
 
-			executionMaxCacheStaleness, exists := pod.ObjectMeta.Annotations[MaxCacheStalenessKey]
-			var maxCacheStalenessInSeconds int64 = -1
+			executionstaleness, exists := pod.ObjectMeta.Annotations[MaxCacheStalenessKey]
+			var cacheStalenessInSeconds int64 = -1
 			if exists {
-				maxCacheStalenessInSeconds = getMaxCacheStaleness(executionMaxCacheStaleness)
+				cacheStalenessInSeconds = stalenessToSeconds(executionstaleness)
 			}
 
-			executionTemplate := pod.ObjectMeta.Annotations[ArgoWorkflowTemplate]
+			var maximumCacheStalenessInSeconds int64 = -1
+			maximumCacheStaleness, exists := os.LookupEnv("MAXIMUM_CACHE_STALENESS")
+			if exists {
+				log.Printf("maximumCacheStaleness: %s", maximumCacheStaleness)
+				maximumCacheStalenessInSeconds = stalenessToSeconds(maximumCacheStaleness)
+				log.Printf("maximumCacheStalenessInSeconds: %d", maximumCacheStalenessInSeconds)
+			}
+			if maximumCacheStalenessInSeconds >= 0 && cacheStalenessInSeconds > maximumCacheStalenessInSeconds {
+				cacheStalenessInSeconds = maximumCacheStalenessInSeconds
+			}
+			log.Printf("Creating cachedb entry with cacheStalenessInSeconds: %d", cacheStalenessInSeconds)
+
+			executionTemplate, _ := getArgoTemplate(pod)
+
 			executionToPersist := model.ExecutionCache{
 				ExecutionCacheKey: executionKey,
 				ExecutionTemplate: executionTemplate,
 				ExecutionOutput:   string(executionOutputJSON),
-				MaxCacheStaleness: maxCacheStalenessInSeconds,
+				MaxCacheStaleness: cacheStalenessInSeconds,
 			}
 
 			cacheEntryCreated, err := clientManager.CacheStore().CreateExecutionCache(&executionToPersist)
@@ -125,10 +140,20 @@ func patchCacheID(ctx context.Context, k8sCore client.KubernetesCoreInterface, p
 }
 
 // Convert RFC3339 Duration(Eg. "P1DT30H4S") to int64 seconds.
-func getMaxCacheStaleness(maxCacheStaleness string) int64 {
+func stalenessToSeconds(staleness string) int64 {
 	var seconds int64 = -1
-	if d, err := duration.Parse(maxCacheStaleness); err == nil {
+	if d, err := duration.Parse(staleness); err == nil {
 		seconds = int64(d / time.Second)
 	}
 	return seconds
+}
+
+// Get Argo workflow template from container env.
+func getArgoTemplate(pod *corev1.Pod) (string, bool) {
+	for _, env := range pod.Spec.Containers[0].Env {
+		if ArgoWorkflowTemplateEnvKey == env.Name {
+			return env.Value, true
+		}
+	}
+	return "", false
 }

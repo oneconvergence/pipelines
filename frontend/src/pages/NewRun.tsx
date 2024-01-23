@@ -14,51 +14,51 @@
  * limitations under the License.
  */
 
-import * as React from 'react';
-import BusyButton from '../atoms/BusyButton';
 import Button from '@material-ui/core/Button';
-import Buttons from '../lib/Buttons';
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Input from '../atoms/Input';
 import InputAdornment from '@material-ui/core/InputAdornment';
-import NewRunParameters from '../components/NewRunParameters';
 import Radio from '@material-ui/core/Radio';
-import ResourceSelector from './ResourceSelector';
-import RunUtils from '../lib/RunUtils';
 import { TextFieldProps } from '@material-ui/core/TextField';
-import Trigger from '../components/Trigger';
-import { ApiExperiment, ApiExperimentStorageState } from '../apis/experiment';
-import { ApiPipeline, ApiParameter, ApiPipelineVersion } from '../apis/pipeline';
-import {
-  ApiRun,
-  ApiResourceReference,
-  ApiRelationship,
-  ApiResourceType,
-  ApiRunDetail,
-  ApiPipelineRuntime,
-} from '../apis/run';
-import { ApiTrigger, ApiJob } from '../apis/job';
-import { Apis, PipelineSortKeys, PipelineVersionSortKeys, ExperimentSortKeys } from '../lib/Apis';
+import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { Page, PageProps } from './Page';
-import { RoutePage, RouteParams, QUERY_PARAMS } from '../components/Router';
-import { ToolbarProps } from '../components/Toolbar';
-import { URLParser } from '../lib/URLParser';
-import { Workflow } from '../../../frontend/third_party/argo-ui/argo_template';
-import { classes, stylesheet } from 'typestyle';
-import { commonCss, padding, color } from '../Css';
-import { logger, errorToMessage } from '../lib/Utils';
-import UploadPipelineDialog, { ImportMethod } from '../components/UploadPipelineDialog';
-import { CustomRendererProps } from '../components/CustomTable';
-import { Description } from '../components/Description';
-import { NamespaceContext } from '../lib/KubeflowClient';
-import { NameWithTooltip } from '../components/CustomTableNameColumn';
-import { PredicateOp, ApiFilter } from '../apis/filter';
-import { HelpButton } from 'src/atoms/HelpButton';
 import { ExternalLink } from 'src/atoms/ExternalLink';
+import { HelpButton } from 'src/atoms/HelpButton';
+import { classes, stylesheet } from 'typestyle';
+import { ApiExperiment, ApiExperimentStorageState } from '../apis/experiment';
+import { ApiFilter, PredicateOp } from '../apis/filter';
+import { ApiJob, ApiTrigger } from '../apis/job';
+import { ApiParameter, ApiPipeline, ApiPipelineVersion } from '../apis/pipeline';
+import {
+  ApiPipelineRuntime,
+  ApiRelationship,
+  ApiResourceReference,
+  ApiResourceType,
+  ApiRun,
+  ApiRunDetail,
+} from '../apis/run';
+import BusyButton from '../atoms/BusyButton';
+import Input from '../atoms/Input';
+import { CustomRendererProps } from '../components/CustomTable';
+import { NameWithTooltip } from '../components/CustomTableNameColumn';
+import { Description } from '../components/Description';
+import NewRunParameters from '../components/NewRunParameters';
+import { QUERY_PARAMS, RoutePage, RouteParams } from '../components/Router';
+import { ToolbarProps } from '../components/Toolbar';
+import Trigger from '../components/Trigger';
+import UploadPipelineDialog, { ImportMethod } from '../components/UploadPipelineDialog';
+import { color, commonCss, padding } from '../Css';
+import { Apis, ExperimentSortKeys, PipelineSortKeys, PipelineVersionSortKeys } from '../lib/Apis';
+import Buttons from '../lib/Buttons';
+import RunUtils from '../lib/RunUtils';
+import { URLParser } from '../lib/URLParser';
+import { errorToMessage, logger, mergeApiParametersByNames } from '../lib/Utils';
+import { Workflow } from '../third_party/mlmd/argo_template';
+import { Page } from './Page';
+import ResourceSelector from './ResourceSelector';
+import PipelinesDialog from '../components/PipelinesDialog';
 
 interface NewRunState {
   description: string;
@@ -97,6 +97,14 @@ interface NewRunState {
   usePipelineFromRunLabel: string;
 }
 
+interface NewRunProps {
+  namespace?: string;
+  existingPipelineId: string | null;
+  handlePipelineIdChange: (pipelineId: string) => void;
+  existingPipelineVersionId: string | null;
+  handlePipelineVersionIdChange: (pipelineVersionId: string) => void;
+}
+
 const css = stylesheet({
   nonEditableInput: {
     color: color.secondaryText,
@@ -113,7 +121,7 @@ const descriptionCustomRenderer: React.FC<CustomRendererProps<string>> = props =
   return <Description description={props.value || ''} forceInline={true} />;
 };
 
-export class NewRun extends Page<{ namespace?: string }, NewRunState> {
+export class NewRun extends Page<NewRunProps, NewRunState> {
   public state: NewRunState = {
     catchup: true,
     description: '',
@@ -215,16 +223,30 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
 
     const buttons = new Buttons(this.props, this.refresh.bind(this));
 
+    const dialogToolbarActionMap = new Buttons(this.props, () => {})
+      .upload(() => {
+        this.setStateSafe({ pipelineSelectorOpen: false, uploadDialogOpen: true });
+      })
+      .getToolbarActionMap();
+
     return (
       <div className={classes(commonCss.page, padding(20, 'lr'))}>
         <div className={commonCss.scrollContainer}>
           <div className={commonCss.header}>Run details</div>
 
           {/* Pipeline selection */}
-          {!!workflowFromRun && (
+          {workflowFromRun && (
             <div>
-              <span>{usePipelineFromRunLabel}</span>
-              {!!originalRunId && <Link to={pipelineDetailsUrl}>[View pipeline]</Link>}
+              <div>
+                <span>{usePipelineFromRunLabel}</span>
+              </div>
+              <div className={classes(padding(10, 't'))}>
+                {originalRunId && (
+                  <Link className={classes(commonCss.link)} to={pipelineDetailsUrl}>
+                    [View pipeline]
+                  </Link>
+                )}
+              </div>
             </div>
           )}
           {!useWorkflowFromRun && (
@@ -268,6 +290,7 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
                       id='choosePipelineVersionBtn'
                       onClick={() => this.setStateSafe({ pipelineVersionSelectorOpen: true })}
                       style={{ padding: '3px 5px', margin: 0 }}
+                      disabled={!unconfirmedSelectedPipeline}
                     >
                       Choose
                     </Button>
@@ -279,55 +302,22 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
           )}
 
           {/* Pipeline selector dialog */}
-          <Dialog
+          <PipelinesDialog
+            {...this.props}
             open={pipelineSelectorOpen}
-            classes={{ paper: css.selectorDialog }}
-            onClose={() => this._pipelineSelectorClosed(false)}
-            PaperProps={{ id: 'pipelineSelectorDialog' }}
-          >
-            <DialogContent>
-              <ResourceSelector
-                {...this.props}
-                title='Choose a pipeline'
-                filterLabel='Filter pipelines'
-                listApi={async (...args) => {
-                  const response = await Apis.pipelineServiceApi.listPipelines(...args);
-                  return {
-                    nextPageToken: response.next_page_token || '',
-                    resources: response.pipelines || [],
-                  };
-                }}
-                columns={this.pipelineSelectorColumns}
-                emptyMessage='No pipelines found. Upload a pipeline and then try again.'
-                initialSortColumn={PipelineSortKeys.CREATED_AT}
-                selectionChanged={(selectedPipeline: ApiPipeline) =>
-                  this.setStateSafe({ unconfirmedSelectedPipeline: selectedPipeline })
-                }
-                toolbarActionMap={buttons
-                  .upload(() =>
-                    this.setStateSafe({ pipelineSelectorOpen: false, uploadDialogOpen: true }),
-                  )
-                  .getToolbarActionMap()}
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button
-                id='cancelPipelineSelectionBtn'
-                onClick={() => this._pipelineSelectorClosed(false)}
-                color='secondary'
-              >
-                Cancel
-              </Button>
-              <Button
-                id='usePipelineBtn'
-                onClick={() => this._pipelineSelectorClosed(true)}
-                color='secondary'
-                disabled={!unconfirmedSelectedPipeline}
-              >
-                Use this pipeline
-              </Button>
-            </DialogActions>
-          </Dialog>
+            selectorDialog={css.selectorDialog}
+            onClose={(confirmed, selectedPipeline?: ApiPipeline) => {
+              this.setStateSafe(
+                { unconfirmedSelectedPipeline: selectedPipeline ?? this.state.pipeline },
+                () => {
+                  this._pipelineSelectorClosed(confirmed);
+                },
+              );
+            }}
+            toolbarActionMap={dialogToolbarActionMap}
+            namespace={this.props.namespace}
+            pipelineSelectorColumns={this.pipelineSelectorColumns}
+          ></PipelinesDialog>
 
           {/* Pipeline version selector dialog */}
           <Dialog
@@ -358,9 +348,14 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
                 columns={this.pipelineVersionSelectorColumns}
                 emptyMessage='No pipeline versions found. Select or upload a pipeline then try again.'
                 initialSortColumn={PipelineVersionSortKeys.CREATED_AT}
-                selectionChanged={(selectedPipelineVersion: ApiPipelineVersion) =>
-                  this.setStateSafe({ unconfirmedSelectedPipelineVersion: selectedPipelineVersion })
-                }
+                selectionChanged={async (selectedId: string) => {
+                  const selectedPipelineVersion = await Apis.pipelineServiceApi.getPipelineVersion(
+                    selectedId,
+                  );
+                  this.setStateSafe({
+                    unconfirmedSelectedPipelineVersion: selectedPipelineVersion,
+                  });
+                }}
                 toolbarActionMap={buttons
                   .upload(() =>
                     this.setStateSafe({
@@ -442,9 +437,12 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
                 columns={this.experimentSelectorColumns}
                 emptyMessage='No experiments found. Create an experiment and then try again.'
                 initialSortColumn={ExperimentSortKeys.CREATED_AT}
-                selectionChanged={(selectedExperiment: ApiExperiment) =>
-                  this.setStateSafe({ unconfirmedSelectedExperiment: selectedExperiment })
-                }
+                selectionChanged={async (selectedId: string) => {
+                  const selectedExperiment = await Apis.experimentServiceApi.getExperiment(
+                    selectedId,
+                  );
+                  this.setStateSafe({ unconfirmedSelectedExperiment: selectedExperiment });
+                }}
               />
             </DialogContent>
             <DialogActions>
@@ -468,6 +466,7 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
 
           {/* Run metadata inputs */}
           <Input
+            id='runNameInput'
             label={isRecurringRun ? 'Recurring run config name' : 'Run name'}
             required={true}
             onChange={this.handleChange('runName')}
@@ -476,9 +475,11 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
             variant='outlined'
           />
           <Input
-            label='Description (optional)'
+            id='descriptionInput'
+            label='Description'
             multiline={true}
             onChange={this.handleChange('description')}
+            required={false}
             value={description}
             variant='outlined'
           />
@@ -526,7 +527,8 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
           <Input
             value={serviceAccount}
             onChange={this.handleChange('serviceAccount')}
-            label='Service Account (Optional)'
+            required={false}
+            label='Service Account'
             variant='outlined'
           />
 
@@ -686,16 +688,20 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
     } else {
       // If we create a run from an existing pipeline version.
       // Get pipeline and pipeline version id from querystring if any
-      const possiblePipelineId = urlParser.get(QUERY_PARAMS.pipelineId);
+      const possiblePipelineId =
+        this.props.existingPipelineId || urlParser.get(QUERY_PARAMS.pipelineId);
       if (possiblePipelineId) {
         try {
           const pipeline = await Apis.pipelineServiceApi.getPipeline(possiblePipelineId);
+          const pipelineName = (pipeline && pipeline.name) || '';
           this.setStateSafe({
             parameters: pipeline.parameters || [],
             pipeline,
-            pipelineName: (pipeline && pipeline.name) || '',
+            pipelineName,
+            unconfirmedSelectedPipeline: pipeline,
           });
           const possiblePipelineVersionId =
+            this.props.existingPipelineVersionId ||
             urlParser.get(QUERY_PARAMS.pipelineVersionId) ||
             (pipeline.default_version && pipeline.default_version.id);
           if (possiblePipelineVersionId) {
@@ -782,9 +788,30 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
   };
 
   protected async _experimentSelectorClosed(confirmed: boolean): Promise<void> {
-    let { experiment } = this.state;
+    let { experiment, pipeline } = this.state;
+    const urlParser = new URLParser(this.props);
     if (confirmed && this.state.unconfirmedSelectedExperiment) {
       experiment = this.state.unconfirmedSelectedExperiment;
+      if (experiment.id && pipeline?.id && this.state.unconfirmedSelectedPipelineVersion?.id) {
+        const searchString = urlParser.build({
+          [QUERY_PARAMS.experimentId]: experiment?.id || '',
+          [QUERY_PARAMS.pipelineId]: pipeline.id || '',
+          [QUERY_PARAMS.pipelineVersionId]: this.state.unconfirmedSelectedPipelineVersion.id || '',
+        });
+        this.props.history.replace(searchString);
+      } else if (experiment.id && pipeline?.id) {
+        const searchString = urlParser.build({
+          [QUERY_PARAMS.experimentId]: experiment?.id || '',
+          [QUERY_PARAMS.pipelineId]: pipeline.id || '',
+          [QUERY_PARAMS.pipelineVersionId]: '',
+        });
+        this.props.history.replace(searchString);
+      } else if (experiment.id) {
+        const searchString = urlParser.build({
+          [QUERY_PARAMS.experimentId]: experiment?.id || '',
+        });
+        this.props.history.replace(searchString);
+      }
     }
 
     this.setStateSafe({
@@ -806,6 +833,10 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
         );
         parameters = pipelineVersion.parameters || [];
       }
+      // To avoid breaking current v1 behavior, only allow switch between v1 and v2 when V2 feature is enabled.
+      if (pipeline.id) {
+        this._updatePipelineId(pipeline.id, pipelineVersion?.id);
+      }
     }
 
     this.setStateSafe(
@@ -816,16 +847,40 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
         pipelineSelectorOpen: false,
         pipelineVersion,
         pipelineVersionName: (pipelineVersion && pipelineVersion.name) || '',
+        runName: pipelineVersion?.name
+          ? this._getRunNameFromPipelineVersion(pipelineVersion.name)
+          : '',
       },
       () => this._validate(),
     );
   }
 
   protected async _pipelineVersionSelectorClosed(confirmed: boolean): Promise<void> {
-    let { parameters, pipelineVersion } = this.state;
+    let { parameters, pipelineVersion, pipeline, experiment } = this.state;
+    const urlParser = new URLParser(this.props);
+    const cloneFromRunValue = urlParser.get(QUERY_PARAMS.cloneFromRun);
+
     if (confirmed && this.state.unconfirmedSelectedPipelineVersion) {
       pipelineVersion = this.state.unconfirmedSelectedPipelineVersion;
-      parameters = pipelineVersion.parameters || [];
+
+      if (cloneFromRunValue) {
+        parameters = mergeApiParametersByNames(pipelineVersion.parameters || [], parameters);
+      } else {
+        parameters = pipelineVersion.parameters || [];
+      }
+
+      // To avoid breaking current v1 behavior, only allow switch between v1 and v2 when V2 feature is enabled.
+      if (pipeline && pipelineVersion.id) {
+        const searchString = urlParser.build({
+          [QUERY_PARAMS.experimentId]: experiment?.id || '',
+          [QUERY_PARAMS.pipelineId]: pipeline.id || '',
+          [QUERY_PARAMS.pipelineVersionId]: pipelineVersion.id || '',
+          [QUERY_PARAMS.cloneFromRun]: cloneFromRunValue || '',
+          [QUERY_PARAMS.isRecurring]: this.state.isRecurringRun ? '1' : '',
+        });
+        this.props.history.replace(searchString);
+        this.props.handlePipelineVersionIdChange(pipelineVersion.id);
+      }
     }
 
     this.setStateSafe(
@@ -834,9 +889,26 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
         pipelineVersion,
         pipelineVersionName: (pipelineVersion && pipelineVersion.name) || '',
         pipelineVersionSelectorOpen: false,
+        runName: this._getRunNameFromPipelineVersion(
+          (pipelineVersion && pipelineVersion.name) || '',
+        ),
       },
       () => this._validate(),
     );
+  }
+
+  private _updatePipelineId(pipelineId: string, pipelineVersionId?: string) {
+    let { experiment } = this.state;
+    const urlParser = new URLParser(this.props);
+    const searchString = urlParser.build({
+      [QUERY_PARAMS.experimentId]: experiment?.id || '',
+      [QUERY_PARAMS.pipelineId]: pipelineId || '',
+      [QUERY_PARAMS.pipelineVersionId]: pipelineVersionId || '',
+      [QUERY_PARAMS.isRecurring]: this.state.isRecurringRun ? '1' : '',
+    });
+    this.props.history.replace(searchString);
+    this.props.handlePipelineVersionIdChange(pipelineVersionId || '');
+    this.props.handlePipelineIdChange(pipelineId);
   }
 
   protected _updateRecurringRunState(isRecurringRun: boolean): void {
@@ -858,6 +930,7 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
     file: File | null,
     url: string,
     method: ImportMethod,
+    isPrivatePipeline: boolean,
     description?: string,
   ): Promise<boolean> {
     if (
@@ -872,17 +945,27 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
     try {
       const uploadedPipeline =
         method === ImportMethod.LOCAL
-          ? await Apis.uploadPipeline(name, description || '', file!)
+          ? await Apis.uploadPipeline(
+              name,
+              description || '',
+              file!,
+              isPrivatePipeline ? this.props.namespace : undefined,
+            )
           : await Apis.pipelineServiceApi.createPipeline({ name, url: { pipeline_url: url } });
       this.setStateSafe(
         {
           pipeline: uploadedPipeline,
           pipelineName: (uploadedPipeline && uploadedPipeline.name) || '',
+          unconfirmedSelectedPipeline: uploadedPipeline,
           pipelineSelectorOpen: false,
           uploadDialogOpen: false,
         },
         () => this._validate(),
       );
+      // Redirect back to NewRunSwitcher to determine if the uploadedPipeline is v1 or v2
+      if (uploadedPipeline.id) {
+        this._updatePipelineId(uploadedPipeline.id, uploadedPipeline.default_version?.id);
+      }
       return true;
     } catch (err) {
       const errorMessage = await errorToMessage(err);
@@ -919,7 +1002,7 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
       const parameters = RunUtils.getParametersFromRun(runWithEmbeddedPipeline);
       this.setStateSafe({
         parameters,
-        usePipelineFromRunLabel: 'Using pipeline from previous page',
+        usePipelineFromRunLabel: 'Using pipeline from previous page.',
         useWorkflowFromRun: true,
         workflowFromRun: workflow,
       });
@@ -1110,7 +1193,9 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
         this.setStateSafe({ isBeingStarted: false });
       }
 
-      if (this.state.experiment) {
+      if (this.state.isRecurringRun) {
+        this.props.history.push(RoutePage.RECURRING_RUNS);
+      } else if (this.state.experiment) {
         this.props.history.push(
           RoutePage.EXPERIMENT_DETAILS.replace(
             ':' + RouteParams.experimentId,
@@ -1159,8 +1244,18 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
 
   private _validate(): void {
     // Validate state
-    const { pipelineVersion, workflowFromRun, maxConcurrentRuns, runName, trigger } = this.state;
+    const {
+      pipeline,
+      pipelineVersion,
+      workflowFromRun,
+      maxConcurrentRuns,
+      runName,
+      trigger,
+    } = this.state;
     try {
+      if (!pipeline && !workflowFromRun) {
+        throw new Error('A pipeline must be selected');
+      }
       if (!pipelineVersion && !workflowFromRun) {
         throw new Error('A pipeline version must be selected');
       }
@@ -1198,10 +1293,3 @@ export class NewRun extends Page<{ namespace?: string }, NewRunState> {
     return parameters.some(parameter => !parameter.value);
   }
 }
-
-const EnhancedNewRun: React.FC<PageProps> = props => {
-  const namespace = React.useContext(NamespaceContext);
-  return <NewRun {...props} namespace={namespace} />;
-};
-
-export default EnhancedNewRun;

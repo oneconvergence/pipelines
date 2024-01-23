@@ -15,20 +15,23 @@
  */
 
 import * as React from 'react';
-import BusyButton from '../atoms/BusyButton';
+import BusyButton from 'src/atoms/BusyButton';
 import Button from '@material-ui/core/Button';
-import Input from '../atoms/Input';
-import { ApiExperiment, ApiResourceType, ApiRelationship } from '../apis/experiment';
-import { Apis } from '../lib/Apis';
-import { Page, PageProps } from './Page';
-import { RoutePage, QUERY_PARAMS } from '../components/Router';
+import Input from 'src/atoms/Input';
+import { V2beta1Experiment } from 'src/apisv2beta1/experiment';
+import { Apis } from 'src/lib/Apis';
+import { Page, PageProps } from 'src/pages/Page';
+import { RoutePage, QUERY_PARAMS } from 'src/components/Router';
 import { TextFieldProps } from '@material-ui/core/TextField';
-import { ToolbarProps } from '../components/Toolbar';
-import { URLParser } from '../lib/URLParser';
+import { ToolbarProps } from 'src/components/Toolbar';
+import { URLParser } from 'src/lib/URLParser';
 import { classes, stylesheet } from 'typestyle';
-import { commonCss, padding, fontsize } from '../Css';
-import { logger, errorToMessage } from '../lib/Utils';
+import { commonCss, padding, fontsize } from 'src/Css';
+import { logger, errorToMessage } from 'src/lib/Utils';
 import { NamespaceContext } from 'src/lib/KubeflowClient';
+import { getLatestVersion } from 'src/pages/NewRunV2';
+import { NewExperimentFC } from 'src/pages/functional_components/NewExperimentFC';
+import { FeatureKey, isFeatureEnabled } from 'src/features';
 
 interface NewExperimentState {
   description: string;
@@ -95,9 +98,10 @@ export class NewExperiment extends Page<{ namespace?: string }, NewExperimentSta
           />
           <Input
             id='experimentDescription'
-            label='Description (optional)'
+            label='Description'
             multiline={true}
             onChange={this.handleChange('description')}
+            required={false}
             value={description}
             variant='outlined'
           />
@@ -144,42 +148,34 @@ export class NewExperiment extends Page<{ namespace?: string }, NewExperimentSta
   };
 
   private _create(): void {
-    const newExperiment: ApiExperiment = {
+    const newExperiment: V2beta1Experiment = {
       description: this.state.description,
-      name: this.state.experimentName,
-      resource_references: this.props.namespace
-        ? [
-            {
-              key: {
-                id: this.props.namespace,
-                type: ApiResourceType.NAMESPACE,
-              },
-              relationship: ApiRelationship.OWNER,
-            },
-          ]
-        : undefined,
+      display_name: this.state.experimentName,
+      namespace: this.props.namespace,
     };
 
     this.setState({ isbeingCreated: true }, async () => {
       try {
-        const response = await Apis.experimentServiceApi.createExperiment(newExperiment);
+        const response = await Apis.experimentServiceApiV2.createExperiment(newExperiment);
         let searchString = '';
         if (this.state.pipelineId) {
+          const latestVersion = await getLatestVersion(this.state.pipelineId);
           searchString = new URLParser(this.props).build({
-            [QUERY_PARAMS.experimentId]: response.id || '',
+            [QUERY_PARAMS.experimentId]: response.experiment_id || '',
             [QUERY_PARAMS.pipelineId]: this.state.pipelineId,
+            [QUERY_PARAMS.pipelineVersionId]: latestVersion?.pipeline_version_id || '',
             [QUERY_PARAMS.firstRunInExperiment]: '1',
           });
         } else {
           searchString = new URLParser(this.props).build({
-            [QUERY_PARAMS.experimentId]: response.id || '',
+            [QUERY_PARAMS.experimentId]: response.experiment_id || '',
             [QUERY_PARAMS.firstRunInExperiment]: '1',
           });
         }
         this.props.history.push(RoutePage.NEW_RUN + searchString);
         this.props.updateSnackbar({
           autoHideDuration: 10000,
-          message: `Successfully created new Experiment: ${newExperiment.name}`,
+          message: `Successfully created new Experiment: ${newExperiment.display_name}`,
           open: true,
         });
       } catch (err) {
@@ -207,7 +203,11 @@ export class NewExperiment extends Page<{ namespace?: string }, NewExperimentSta
 
 const EnhancedNewExperiment: React.FC<PageProps> = props => {
   const namespace = React.useContext(NamespaceContext);
-  return <NewExperiment {...props} namespace={namespace} />;
+  return isFeatureEnabled(FeatureKey.FUNCTIONAL_COMPONENT) ? (
+    <NewExperimentFC {...props} namespace={namespace} />
+  ) : (
+    <NewExperiment {...props} namespace={namespace} />
+  );
 };
 
 export default EnhancedNewExperiment;

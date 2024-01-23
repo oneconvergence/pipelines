@@ -19,8 +19,6 @@ import (
 	"strings"
 	"time"
 
-	workflowclientSet "github.com/argoproj/argo-workflows/v3/pkg/client/clientset/versioned"
-	workflowinformers "github.com/argoproj/argo-workflows/v3/pkg/client/informers/externalversions"
 	commonutil "github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/crd/controller/scheduledworkflow/util"
 	swfclientset "github.com/kubeflow/pipelines/backend/src/crd/pkg/client/clientset/versioned"
@@ -34,6 +32,7 @@ import (
 )
 
 var (
+	logLevel    string
 	masterURL   string
 	kubeconfig  string
 	namespace   string
@@ -55,6 +54,16 @@ func main() {
 	cfg.QPS = float32(clientQPS)
 	cfg.Burst = clientBurst
 
+	if logLevel == "" {
+		logLevel = "info"
+	}
+
+	level, err := log.ParseLevel(logLevel)
+	if err != nil {
+		log.Fatal("Invalid log level:", err)
+	}
+	log.SetLevel(level)
+
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		log.Fatalf("Error building kubernetes clientset: %s", err.Error())
@@ -65,32 +74,28 @@ func main() {
 		log.Fatalf("Error building schedule clientset: %s", err.Error())
 	}
 
-	workflowClient, err := workflowclientSet.NewForConfig(cfg)
-	if err != nil {
-		log.Fatalf("Error building workflow clientset: %s", err.Error())
-	}
+	clientParam := commonutil.ClientParameters{QPS: float64(cfg.QPS), Burst: cfg.Burst}
+	execClient := commonutil.NewExecutionClientOrFatal(commonutil.ArgoWorkflow, time.Second*30, clientParam)
 
 	var scheduleInformerFactory swfinformers.SharedInformerFactory
-	var workflowInformerFactory workflowinformers.SharedInformerFactory
+	execInformer := commonutil.NewExecutionInformerOrFatal(commonutil.ArgoWorkflow, namespace, time.Second*30, clientParam)
 	if namespace == "" {
 		scheduleInformerFactory = swfinformers.NewSharedInformerFactory(scheduleClient, time.Second*30)
-		workflowInformerFactory = workflowinformers.NewSharedInformerFactory(workflowClient, time.Second*30)
 	} else {
 		scheduleInformerFactory = swfinformers.NewFilteredSharedInformerFactory(scheduleClient, time.Second*30, namespace, nil)
-		workflowInformerFactory = workflowinformers.NewFilteredSharedInformerFactory(workflowClient, time.Second*30, namespace, nil)
 	}
 
 	controller := NewController(
 		kubeClient,
 		scheduleClient,
-		workflowClient,
+		execClient,
 		scheduleInformerFactory,
-		workflowInformerFactory,
+		execInformer,
 		commonutil.NewRealTime(),
 		location)
 
 	go scheduleInformerFactory.Start(stopCh)
-	go workflowInformerFactory.Start(stopCh)
+	go execInformer.InformerFactoryStart(stopCh)
 
 	if err = controller.Run(2, stopCh); err != nil {
 		log.Fatalf("Error running controller: %s", err.Error())
@@ -108,6 +113,7 @@ func initEnv() {
 func init() {
 	initEnv()
 
+	flag.StringVar(&logLevel, "logLevel", "", "Defines the log level for the application.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace name used for Kubernetes informers to obtain the listers.")

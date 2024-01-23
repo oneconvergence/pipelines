@@ -41,15 +41,21 @@ function clean_up {
   ALL_PODS=($(kubectl get pods -o=custom-columns=:metadata.name -n $NAMESPACE))
   for POD_NAME in "${ALL_PODS[@]}"; do
     pod_info_file="$POD_INFO_DIR/$POD_NAME.txt"
+    echo "Saving log of $POD_NAME to $pod_info_file"
     echo "Pod name: $POD_NAME" >> "$pod_info_file"
     echo "Detailed logs:" >> "$pod_info_file"
-    echo "https://console.cloud.google.com/logs/viewer?project=$PROJECT&advancedFilter=resource.type%3D%22k8s_container%22%0Aresource.labels.project_id%3D%22$PROJECT%22%0Aresource.labels.location%3D%22us-east1-b%22%0Aresource.labels.cluster_name%3D%22${TEST_CLUSTER}%22%0Aresource.labels.namespace_name%3D%22$NAMESPACE%22%0Aresource.labels.pod_name%3D%22$POD_NAME%22" \
+    echo "https://console.cloud.google.com/logs/viewer?project=$PROJECT&advancedFilter=resource.type%3D%22k8s_container%22%0Aresource.labels.project_id%3D%22$PROJECT%22%0Aresource.labels.location%3D%22us-west1-b%22%0Aresource.labels.cluster_name%3D%22${TEST_CLUSTER}%22%0Aresource.labels.namespace_name%3D%22$NAMESPACE%22%0Aresource.labels.pod_name%3D%22$POD_NAME%22" \
       >> "$pod_info_file"
     echo "--------" >> "$pod_info_file"
     kubectl describe pod $POD_NAME -n $NAMESPACE >> "$pod_info_file"
     echo "--------" >> "$pod_info_file"
     kubectl get pod $POD_NAME -n $NAMESPACE -o yaml >> "$pod_info_file"
   done
+  
+  echo "Archiving ${ARTIFACTS} into ./${COMMIT_SHA}_logs.tar.gz" 
+  tar -czf ./${COMMIT_SHA}_logs.tar.gz ${ARTIFACTS}
+  echo "Uploading ./${COMMIT_SHA}_logs.tar.gz to ${TEST_RESULTS_GCS_DIR}/logs"
+  gsutil cp ${COMMIT_SHA}_logs.tar.gz "${TEST_RESULTS_GCS_DIR}/logs"
 
   echo "Clean up cluster..."
   if [ $SHOULD_CLEANUP_CLUSTER == true ]; then
@@ -81,10 +87,14 @@ else
     SCOPE_ARG="--scopes=storage-rw,cloud-platform"
   fi
   # Use regular release channel to keep up with newly created clusters in Google Cloud Marketplace.
-  # Uncomment the line below when we start to supporter non-docker container
-  # gcloud container clusters create ${TEST_CLUSTER} --release-channel regular ${SCOPE_ARG} ${NODE_POOL_CONFIG_ARG} ${WI_ARG}
-  # Temporarily pin k8s version to 1.18 since k8s version 1.19 or above does not support docker
-  gcloud container clusters create ${TEST_CLUSTER} --cluster-version 1.18 ${SCOPE_ARG} ${NODE_POOL_CONFIG_ARG} ${WI_ARG}
+  # TODO(#9706): Switch back to regular channel once we stop building test images via dind.
+  # Temporarily use cos as image type until docker dependencies gets removed. 
+  # reference: https://github.com/kubeflow/pipelines/issues/6696
+  # Hard-coded GKE to 1.25.10-gke.1200 (the latest 1.25 in STABLE channel). Reference: 
+  # https://github.com/kubeflow/pipelines/issues/9704#issuecomment-1622310358
+  # 08/09/2023 update: 1.25.10-gke.1200 no longer supported, use 1.25.10-gke.2100 instead. Reference:
+  # https://cloud.google.com/kubernetes-engine/docs/release-notes-nochannel#2023-r17_version_updates
+  gcloud container clusters create ${TEST_CLUSTER} --image-type cos_containerd --release-channel stable --cluster-version 1.25 ${SCOPE_ARG} ${NODE_POOL_CONFIG_ARG} ${WI_ARG}
 fi
 
 gcloud container clusters get-credentials ${TEST_CLUSTER}
@@ -92,7 +102,7 @@ gcloud container clusters get-credentials ${TEST_CLUSTER}
 # when we reuse a cluster when debugging, clean up its kfp installation first
 # this does nothing with a new cluster
 kubectl delete namespace ${NAMESPACE} --wait || echo "No need to delete ${NAMESPACE} namespace. It doesn't exist."
-kubectl create namespace ${NAMESPACE} --dry-run -o yaml | kubectl apply -f -
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
 if [ "$ENABLE_WORKLOAD_IDENTITY" != true ]; then
   if [ -z $SA_KEY_FILE ]; then
@@ -104,5 +114,5 @@ if [ "$ENABLE_WORKLOAD_IDENTITY" != true ]; then
     # Because there's a limit of 10 keys per service account, we are reusing the same key stored in the following bucket.
     gsutil cp "gs://ml-pipeline-test-keys/ml-pipeline-test-sa-key.json" $SA_KEY_FILE
   fi
-  kubectl create secret -n ${NAMESPACE} generic user-gcp-sa --from-file=user-gcp-sa.json=$SA_KEY_FILE --dry-run -o yaml | kubectl apply -f -
+  kubectl create secret -n ${NAMESPACE} generic user-gcp-sa --from-file=user-gcp-sa.json=$SA_KEY_FILE --dry-run=client -o yaml | kubectl apply -f -
 fi

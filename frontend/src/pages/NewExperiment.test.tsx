@@ -25,7 +25,7 @@ import { ApiResourceType, ApiRelationship } from 'src/apis/experiment';
 
 describe('NewExperiment', () => {
   let tree: ReactWrapper | ShallowWrapper;
-  const createExperimentSpy = jest.spyOn(Apis.experimentServiceApi, 'createExperiment');
+  const createExperimentSpy = jest.spyOn(Apis.experimentServiceApiV2, 'createExperiment');
   const historyPushSpy = jest.fn();
   const updateDialogSpy = jest.fn();
   const updateSnackbarSpy = jest.fn();
@@ -59,7 +59,7 @@ describe('NewExperiment', () => {
     updateSnackbarSpy.mockReset();
     updateToolbarSpy.mockReset();
 
-    createExperimentSpy.mockImplementation(() => ({ id: 'new-experiment-id' }));
+    createExperimentSpy.mockImplementation(() => ({ experiment_id: 'new-experiment-id' }));
   });
 
   afterEach(() => tree.unmount());
@@ -160,7 +160,7 @@ describe('NewExperiment', () => {
 
     expect(createExperimentSpy).toHaveBeenCalledWith({
       description: 'experiment description',
-      name: 'experiment name',
+      display_name: 'experiment name',
     });
   });
 
@@ -173,22 +173,14 @@ describe('NewExperiment', () => {
 
     expect(createExperimentSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        resource_references: [
-          {
-            key: {
-              id: 'test-ns',
-              type: ApiResourceType.NAMESPACE,
-            },
-            relationship: ApiRelationship.OWNER,
-          },
-        ],
+        namespace: 'test-ns',
       }),
     );
   });
 
   it('navigates to NewRun page upon successful creation', async () => {
     const experimentId = 'test-exp-id-1';
-    createExperimentSpy.mockImplementation(() => ({ id: experimentId }));
+    createExperimentSpy.mockImplementation(() => ({ experiment_id: experimentId }));
     tree = shallow(<NewExperiment {...(generateProps() as any)} />);
 
     (tree.instance() as any).handleChange('experimentName')({
@@ -204,11 +196,17 @@ describe('NewExperiment', () => {
     );
   });
 
-  it('includes pipeline ID in NewRun page query params if present', async () => {
+  it('includes pipeline ID and version ID in NewRun page query params if present', async () => {
     const experimentId = 'test-exp-id-1';
-    createExperimentSpy.mockImplementation(() => ({ id: experimentId }));
+    createExperimentSpy.mockImplementation(() => ({ experiment_id: experimentId }));
 
     const pipelineId = 'some-pipeline-id';
+    const pipelineVersionId = 'version-id';
+    const listPipelineVersionsSpy = jest.spyOn(Apis.pipelineServiceApiV2, 'listPipelineVersions');
+    listPipelineVersionsSpy.mockImplementation(() => ({
+      pipeline_versions: [{ pipeline_version_id: pipelineVersionId }],
+    }));
+
     const props = generateProps();
     props.location.search = `?${QUERY_PARAMS.pipelineId}=${pipelineId}`;
     tree = shallow(<NewExperiment {...(props as any)} />);
@@ -219,12 +217,14 @@ describe('NewExperiment', () => {
 
     tree.find('#createExperimentBtn').simulate('click');
     await createExperimentSpy;
+    await listPipelineVersionsSpy;
     await TestUtils.flushPromises();
 
     expect(historyPushSpy).toHaveBeenCalledWith(
       RoutePage.NEW_RUN +
         `?experimentId=${experimentId}` +
         `&pipelineId=${pipelineId}` +
+        `&pipelineVersionId=${pipelineVersionId}` +
         `&firstRunInExperiment=1`,
     );
   });

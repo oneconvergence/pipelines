@@ -1,50 +1,87 @@
-# Kubeflow Pipelines API
+# Kubeflow Pipelines backend API
 
-## Before You Start
+## Before you begin
 
 Tools needed:
 
-* Docker
-* Make
+* [docker](https://docs.docker.com/get-docker/)
+* [make](https://www.gnu.org/software/make/)
+* [java](https://www.java.com/en/download/)
+* [python3](https://www.python.org/downloads/)
 
-## Auto-generation of Go client and swagger definitions
+Set the environment variable `API_VERSION` to the version that you want to generate. We use `v1beta1` as example here.
 
 ```bash
-make
+export API_VERSION="v1beta1"
 ```
 
-Code will be generated in:
+## Compiling `.proto` files to Go client and swagger definitions
 
-* `./go_client`
-* `./go_http_client`
-* `./swagger`
+Use `make generate` command to generate clients using a pre-built api-generator image:
+```bash
+make generate
+```
 
-## Auto-generation of Python client
+Go client library will be placed into:
+
+* `./${API_VERSION}/go_client`
+* `./${API_VERSION}/go_http_client`
+* `./${API_VERSION}/swagger`
+
+> **Note**
+> `./${API_VERSION}/swagger/pipeline.upload.swagger.json` is manually created, while the rest of `./${API_VERSION}/swagger/*.swagger.json` are compiled from `./${API_VERSION}/*.proto` files.
+
+## Compiling Python client
+
+To generate the Python client, run the following bash script (requires `java` and `python3`).
 
 ```bash
 ./build_kfp_server_api_python_package.sh
 ```
 
-Code will be generated in `./python_http_client`.
+Python client will be placed into `./${API_VERSION}/python_http_client`.
 
-## Auto-generation of API reference documentation
+## Updating of API reference documentation
 
-This directory contains API definitions. They are used to generate [the API reference on kubeflow.org](https://www.kubeflow.org/docs/pipelines/reference/api/kubeflow-pipeline-api-spec/).
+> **Note**
+> Whenever the API definition changes (i.e., the file `kfp_api_single_file.swagger.json` changes), the API reference documentation needs to be updated.
 
-* Use the tools [bootprint-openapi](https://github.com/bootprint/bootprint-monorepo/tree/master/packages/bootprint-openapi) and [html-inline](https://github.com/substack/html-inline) to generate the API reference from [kfp_api_single_file.swagger.json](https://github.com/kubeflow/pipelines/blob/master/backend/api/swagger/kfp_api_single_file.swagger.json). These [instructions](https://github.com/bootprint/bootprint-monorepo/tree/master/packages/bootprint-openapi#bootprint-openapi) have shown how to generate *a single self-contained html file* which is the API reference, from a json file.
+API definitions in this folder are used to generate [`v1beta1`](https://www.kubeflow.org/docs/components/pipelines/v1/reference/api/kubeflow-pipeline-api-spec/) and [`v2beta1`](https://www.kubeflow.org/docs/components/pipelines/v2/reference/api/kubeflow-pipeline-api-spec/) API reference documentation on kubeflow.org. Follow the steps below to update the documentation:
 
-* Use the above generated html to replace the html section, which is below the title section, in the file [kubeflow-pipeline-api-spec.html](https://github.com/kubeflow/website/blob/master/content/en/docs/pipelines/reference/api/kubeflow-pipeline-api-spec.html)
+1. Install [bootprint-openapi](https://github.com/bootprint/bootprint-monorepo/tree/master/packages/bootprint-openapi) and [html-inline](https://www.npmjs.com/package/html-inline) packages using `npm`:
+   ```bash
+   npm install -g bootprint
+   npm install -g bootprint-openapi
+   npm -g install html-inline
+   ```
 
-Note: whenever the API definition changes (i.e., the file [kfp_api_single_file.swagger.json](https://github.com/kubeflow/pipelines/blob/master/backend/api/swagger/kfp_api_single_file.swagger.json) changes), the API reference needs to be updated.
+2. Generate *self-contained html file(s)* with API reference documentation from `./${API_VERSION}/swagger/kfp_api_single_file.swagger.json`:
 
-## Auto-generation of api generator image
+    Fov `v1beta1`:
 
-```bash
-make push
-```
+   ```bash
+   bootprint openapi ./v1beta1/swagger/kfp_api_single_file.swagger.json ./temp/v1
+   html-inline ./temp/v1/index.html > ./temp/v1/kubeflow-pipeline-api-spec.html
+   ```
 
-When you update the [Dockerfile](`./Dockerfile`), to make sure others are using the same image as you do:
+   For `v2beta1`:
 
-1. push a new version of the api generator image to gcr.io/ml-pipeline-test/api-generator:latest.
-2. update the PREBUILT_REMOTE_IMAGE var in Makefile to point to your new image.
-3. push a new version of the release tools image to gcr.io/ml-pipeline-test/release:latest, run `make push` in [test/release/Makefile](../../test/release/Makefile).
+   ```bash
+   bootprint openapi ./v2beta1/swagger/kfp_api_single_file.swagger.json ./temp/v2
+   html-inline ./temp/v2/index.html > ./temp/v2/kubeflow-pipeline-api-spec.html
+   ```
+
+3. Use the above generated html file(s) to replace the relevant section(s) on kubeflow.org. When copying th content, make sure to **preserve the original headers**.
+   - `v1beta1`: file [kubeflow-pipeline-api-spec.html](https://github.com/kubeflow/website/blob/master/content/en/docs/components/pipelines/v1/reference/api/kubeflow-pipeline-api-spec.html).
+   - `v2beta1`: file [kubeflow-pipeline-api-spec.html](https://github.com/kubeflow/website/blob/master/content/en/docs/components/pipelines/v2/reference/api/kubeflow-pipeline-api-spec.html).
+
+4. Create a PR with the changes in [kubeflow.org website repository](https://github.com/kubeflow/website). See an example [here](https://github.com/kubeflow/website/pull/3444).
+
+## Updating API generator image
+
+API generator image is defined in [Dockerfile](`./Dockerfile`). If you need to update the container, follow these steps:
+
+1. Update the [Dockerfile](`./Dockerfile`) and build the image by running `docker build -t gcr.io/ml-pipeline-test/api-generator:latest .`
+1. Push the new container by running `docker push gcr.io/ml-pipeline-test/api-generator:latest` (requires to be [authenticated](https://cloud.google.com/container-registry/docs/advanced-authentication)).
+1. Update the `PREBUILT_REMOTE_IMAGE` variable in the [Makefile](./Makefile) to point to your new image.
+1. Similarly, push a new version of the release tools image to `gcr.io/ml-pipeline-test/release:latest` and run `make push` in [test/release/Makefile](../../test/release/Makefile).

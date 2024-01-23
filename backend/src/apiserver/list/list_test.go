@@ -1,21 +1,33 @@
+// Copyright 2018 The Kubeflow Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package list
 
 import (
-	"google.golang.org/protobuf/testing/protocmp"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
+	sq "github.com/Masterminds/squirrel"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/filter"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/stretchr/testify/assert"
-
-	sq "github.com/Masterminds/squirrel"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 type fakeMetric struct {
@@ -100,11 +112,12 @@ func TestNextPageToken_ValidTokens(t *testing.T) {
 	}}
 
 	protoFilter := &api.Filter{Predicates: []*api.Predicate{
-		&api.Predicate{
+		{
 			Key:   "name",
 			Op:    api.Predicate_EQUALS,
 			Value: &api.Predicate_StringValue{StringValue: "SomeName"},
-		}}}
+		},
+	}}
 	testFilter, err := filter.New(protoFilter)
 	if err != nil {
 		t.Fatalf("failed to parse filter proto %+v: %v", protoFilter, err)
@@ -197,7 +210,7 @@ func TestNextPageToken_ValidTokens(t *testing.T) {
 	for _, test := range tests {
 		got, err := test.inOpts.nextPageToken(l)
 
-		if !cmp.Equal(got, test.want, cmpopts.EquateEmpty(), protocmp.Transform(),cmp.AllowUnexported(filter.Filter{})) || err != nil {
+		if !cmp.Equal(got, test.want, cmpopts.EquateEmpty(), protocmp.Transform(), cmp.AllowUnexported(filter.Filter{})) || err != nil {
 			t.Errorf("nextPageToken(%+v, %+v) =\nGot: %+v, %+v\nWant: %+v, <nil>\nDiff:\n%s",
 				test.inOpts, l, got, err, test.want, cmp.Diff(test.want, got))
 		}
@@ -431,17 +444,18 @@ func TestNewOptions_InvalidPageSize(t *testing.T) {
 func TestNewOptions_ValidFilter(t *testing.T) {
 	protoFilter := &api.Filter{
 		Predicates: []*api.Predicate{
-			&api.Predicate{
+			{
 				Key:   "name",
 				Op:    api.Predicate_EQUALS,
 				Value: &api.Predicate_StringValue{StringValue: "SomeName"},
 			},
 		},
 	}
+	newFilter, _ := filter.New(protoFilter)
 
 	protoFilterWithRightKeyNames := &api.Filter{
 		Predicates: []*api.Predicate{
-			&api.Predicate{
+			{
 				Key:   "FakeName",
 				Op:    api.Predicate_EQUALS,
 				Value: &api.Predicate_StringValue{StringValue: "SomeName"},
@@ -454,7 +468,7 @@ func TestNewOptions_ValidFilter(t *testing.T) {
 		t.Fatalf("failed to parse filter proto %+v: %v", protoFilter, err)
 	}
 
-	got, err := NewOptions(&fakeListable{}, 10, "timestamp", protoFilter)
+	got, err := NewOptions(&fakeListable{}, 10, "timestamp", newFilter)
 	want := &Options{
 		PageSize: 10,
 		token: &token{
@@ -482,24 +496,75 @@ func TestNewOptions_ValidFilter(t *testing.T) {
 func TestNewOptions_InvalidFilter(t *testing.T) {
 	protoFilter := &api.Filter{
 		Predicates: []*api.Predicate{
-			&api.Predicate{
+			{
 				Key:   "unknownfield",
 				Op:    api.Predicate_EQUALS,
 				Value: &api.Predicate_StringValue{StringValue: "SomeName"},
 			},
 		},
 	}
+	newFilter, _ := filter.New(protoFilter)
 
-	got, err := NewOptions(&fakeListable{}, 10, "timestamp", protoFilter)
+	got, err := NewOptions(&fakeListable{}, 10, "timestamp", newFilter)
 	if err == nil {
 		t.Errorf("NewOptions(protoFilter=%+v) =\nGot: %+v, <nil>\nWant error", protoFilter, got)
+	}
+}
+
+func TestNewOptions_ModelFilter(t *testing.T) {
+	protoFilter := &api.Filter{
+		Predicates: []*api.Predicate{
+			{
+				Key:   "finished_at",
+				Op:    api.Predicate_GREATER_THAN,
+				Value: &api.Predicate_StringValue{StringValue: "SomeTime"},
+			},
+		},
+	}
+	newFilter, _ := filter.New(protoFilter)
+
+	protoFilterWithRightKeyNames := &api.Filter{
+		Predicates: []*api.Predicate{
+			{
+				Key:   "FinishedAtInSec",
+				Op:    api.Predicate_GREATER_THAN,
+				Value: &api.Predicate_StringValue{StringValue: "SomeTime"},
+			},
+		},
+	}
+
+	f, err := filter.New(protoFilterWithRightKeyNames)
+	if err != nil {
+		t.Fatalf("failed to parse filter proto %+v: %v", protoFilter, err)
+	}
+
+	got, err := NewOptions(&model.Run{}, 10, "name", newFilter)
+	want := &Options{
+		PageSize: 10,
+		token: &token{
+			KeyFieldName:    "UUID",
+			SortByFieldName: "DisplayName",
+			IsDesc:          false,
+			Filter:          f,
+		},
+	}
+
+	opts := []cmp.Option{
+		cmpopts.EquateEmpty(), protocmp.Transform(),
+		cmp.AllowUnexported(Options{}),
+		cmp.AllowUnexported(filter.Filter{}),
+	}
+
+	if !cmp.Equal(got, want, opts...) || err != nil {
+		t.Errorf("NewOptions(protoFilter=%+v) =\nGot: %+v, %v\nWant: %+v, nil\nDiff:\n%s",
+			protoFilter, got, err, want, cmp.Diff(got, want, opts...))
 	}
 }
 
 func TestAddPaginationAndFilterToSelect(t *testing.T) {
 	protoFilter := &api.Filter{
 		Predicates: []*api.Predicate{
-			&api.Predicate{
+			{
 				Key:   "Name",
 				Op:    api.Predicate_EQUALS,
 				Value: &api.Predicate_StringValue{StringValue: "SomeName"},
@@ -626,11 +691,12 @@ func TestAddPaginationAndFilterToSelect(t *testing.T) {
 
 func TestTokenSerialization(t *testing.T) {
 	protoFilter := &api.Filter{Predicates: []*api.Predicate{
-		&api.Predicate{
+		{
 			Key:   "name",
 			Op:    api.Predicate_EQUALS,
 			Value: &api.Predicate_StringValue{StringValue: "SomeName"},
-		}}}
+		},
+	}}
 	testFilter, err := filter.New(protoFilter)
 	if err != nil {
 		t.Fatalf("failed to parse filter proto %+v: %v", protoFilter, err)
@@ -649,7 +715,8 @@ func TestTokenSerialization(t *testing.T) {
 				KeyFieldName:      "KeyField",
 				KeyFieldValue:     "string_key_value",
 				KeyFieldPrefix:    "",
-				IsDesc:            true},
+				IsDesc:            true,
+			},
 			want: &token{
 				SortByFieldName:   "SortField",
 				SortByFieldValue:  "string_field_value",
@@ -657,7 +724,8 @@ func TestTokenSerialization(t *testing.T) {
 				KeyFieldName:      "KeyField",
 				KeyFieldValue:     "string_key_value",
 				KeyFieldPrefix:    "",
-				IsDesc:            true},
+				IsDesc:            true,
+			},
 		},
 		// int values get deserialized as floats by JSON unmarshal.
 		{
@@ -668,7 +736,8 @@ func TestTokenSerialization(t *testing.T) {
 				KeyFieldName:      "KeyField",
 				KeyFieldValue:     200,
 				KeyFieldPrefix:    "",
-				IsDesc:            true},
+				IsDesc:            true,
+			},
 			want: &token{
 				SortByFieldName:   "SortField",
 				SortByFieldValue:  float64(100),
@@ -676,7 +745,8 @@ func TestTokenSerialization(t *testing.T) {
 				KeyFieldName:      "KeyField",
 				KeyFieldValue:     float64(200),
 				KeyFieldPrefix:    "",
-				IsDesc:            true},
+				IsDesc:            true,
+			},
 		},
 		// has a filter.
 		{
@@ -705,7 +775,6 @@ func TestTokenSerialization(t *testing.T) {
 
 	for _, test := range tests {
 		s, err := test.in.marshal()
-
 		if err != nil {
 			t.Errorf("Token.Marshal(%+v) = _, %v\nWant nil error", test.in, err)
 			continue
@@ -713,7 +782,7 @@ func TestTokenSerialization(t *testing.T) {
 
 		got := &token{}
 		got.unmarshal(s)
-		if !cmp.Equal(got, test.want, cmpopts.EquateEmpty(), protocmp.Transform(),cmp.AllowUnexported(filter.Filter{})) {
+		if !cmp.Equal(got, test.want, cmpopts.EquateEmpty(), protocmp.Transform(), cmp.AllowUnexported(filter.Filter{})) {
 			t.Errorf("token.unmarshal(%q) =\nGot: %+v\nWant: %+v\nDiff:\n%s",
 				s, got, test.want, cmp.Diff(test.want, got, cmp.AllowUnexported(filter.Filter{})))
 		}
@@ -723,7 +792,7 @@ func TestTokenSerialization(t *testing.T) {
 func TestMatches(t *testing.T) {
 	protoFilter1 := &api.Filter{
 		Predicates: []*api.Predicate{
-			&api.Predicate{
+			{
 				Key:   "Name",
 				Op:    api.Predicate_EQUALS,
 				Value: &api.Predicate_StringValue{StringValue: "SomeName"},
@@ -737,7 +806,7 @@ func TestMatches(t *testing.T) {
 
 	protoFilter2 := &api.Filter{
 		Predicates: []*api.Predicate{
-			&api.Predicate{
+			{
 				Key:   "Name",
 				Op:    api.Predicate_NOT_EQUALS, // Not equals as opposed to equals above.
 				Value: &api.Predicate_StringValue{StringValue: "SomeName"},
@@ -792,12 +861,11 @@ func TestMatches(t *testing.T) {
 }
 
 func TestFilterOnResourceReference(t *testing.T) {
-
 	type testIn struct {
 		table        string
-		resourceType common.ResourceType
+		resourceType model.ResourceType
 		count        bool
-		filter       *common.FilterContext
+		filter       *model.FilterContext
 	}
 	tests := []struct {
 		in      *testIn
@@ -807,9 +875,9 @@ func TestFilterOnResourceReference(t *testing.T) {
 		{
 			in: &testIn{
 				table:        "testTable",
-				resourceType: common.Run,
+				resourceType: model.RunResourceType,
 				count:        false,
-				filter:       &common.FilterContext{},
+				filter:       &model.FilterContext{},
 			},
 			wantSql: "SELECT * FROM testTable",
 			wantErr: nil,
@@ -817,9 +885,9 @@ func TestFilterOnResourceReference(t *testing.T) {
 		{
 			in: &testIn{
 				table:        "testTable",
-				resourceType: common.Run,
+				resourceType: model.RunResourceType,
 				count:        true,
-				filter:       &common.FilterContext{},
+				filter:       &model.FilterContext{},
 			},
 			wantSql: "SELECT count(*) FROM testTable",
 			wantErr: nil,
@@ -827,9 +895,9 @@ func TestFilterOnResourceReference(t *testing.T) {
 		{
 			in: &testIn{
 				table:        "testTable",
-				resourceType: common.Run,
+				resourceType: model.RunResourceType,
 				count:        false,
-				filter:       &common.FilterContext{ReferenceKey: &common.ReferenceKey{Type: common.Run}},
+				filter:       &model.FilterContext{ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: "test3"}},
 			},
 			wantSql: "SELECT * FROM testTable WHERE UUID in (SELECT ResourceUUID FROM resource_references as rf WHERE (rf.ResourceType = ? AND rf.ReferenceUUID = ? AND rf.ReferenceType = ?))",
 			wantErr: nil,
@@ -837,9 +905,9 @@ func TestFilterOnResourceReference(t *testing.T) {
 		{
 			in: &testIn{
 				table:        "testTable",
-				resourceType: common.Run,
+				resourceType: model.RunResourceType,
 				count:        true,
-				filter:       &common.FilterContext{ReferenceKey: &common.ReferenceKey{Type: common.Run}},
+				filter:       &model.FilterContext{ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: "test4"}},
 			},
 			wantSql: "SELECT count(*) FROM testTable WHERE UUID in (SELECT ResourceUUID FROM resource_references as rf WHERE (rf.ResourceType = ? AND rf.ReferenceUUID = ? AND rf.ReferenceType = ?))",
 			wantErr: nil,
@@ -859,11 +927,10 @@ func TestFilterOnResourceReference(t *testing.T) {
 }
 
 func TestFilterOnExperiment(t *testing.T) {
-
 	type testIn struct {
 		table  string
 		count  bool
-		filter *common.FilterContext
+		filter *model.FilterContext
 	}
 	tests := []struct {
 		in      *testIn
@@ -874,7 +941,7 @@ func TestFilterOnExperiment(t *testing.T) {
 			in: &testIn{
 				table:  "testTable",
 				count:  false,
-				filter: &common.FilterContext{},
+				filter: &model.FilterContext{},
 			},
 			wantSql: "SELECT * FROM testTable WHERE ExperimentUUID = ?",
 			wantErr: nil,
@@ -883,7 +950,7 @@ func TestFilterOnExperiment(t *testing.T) {
 			in: &testIn{
 				table:  "testTable",
 				count:  true,
-				filter: &common.FilterContext{},
+				filter: &model.FilterContext{},
 			},
 			wantSql: "SELECT count(*) FROM testTable WHERE ExperimentUUID = ?",
 			wantErr: nil,
@@ -903,11 +970,10 @@ func TestFilterOnExperiment(t *testing.T) {
 }
 
 func TestFilterOnNamesapce(t *testing.T) {
-
 	type testIn struct {
 		table  string
 		count  bool
-		filter *common.FilterContext
+		filter *model.FilterContext
 	}
 	tests := []struct {
 		in      *testIn
@@ -918,7 +984,7 @@ func TestFilterOnNamesapce(t *testing.T) {
 			in: &testIn{
 				table:  "testTable",
 				count:  false,
-				filter: &common.FilterContext{},
+				filter: &model.FilterContext{},
 			},
 			wantSql: "SELECT * FROM testTable WHERE Namespace = ?",
 			wantErr: nil,
@@ -927,7 +993,7 @@ func TestFilterOnNamesapce(t *testing.T) {
 			in: &testIn{
 				table:  "testTable",
 				count:  true,
-				filter: &common.FilterContext{},
+				filter: &model.FilterContext{},
 			},
 			wantSql: "SELECT count(*) FROM testTable WHERE Namespace = ?",
 			wantErr: nil,
@@ -957,7 +1023,8 @@ func TestAddSortingToSelectWithPipelineVersionModel(t *testing.T) {
 		CodeSourceUrl:  "",
 	}
 	protoFilter := &api.Filter{}
-	listableOptions, err := NewOptions(listable, 10, "name", protoFilter)
+	newFilter, _ := filter.New(protoFilter)
+	listableOptions, err := NewOptions(listable, 10, "name", newFilter)
 	assert.Nil(t, err)
 	sqlBuilder := sq.Select("*").From("pipeline_versions")
 	sql, _, err := listableOptions.AddSortingToSelect(sqlBuilder).ToSql()
@@ -969,10 +1036,13 @@ func TestAddSortingToSelectWithPipelineVersionModel(t *testing.T) {
 
 func TestAddStatusFilterToSelectWithRunModel(t *testing.T) {
 	listable := &model.Run{
-		UUID:           "run_id_1",
-		CreatedAtInSec: 1,
-		Name:           "run_name_1",
-		Conditions:     "Succeeded",
+		UUID:        "run_id_1",
+		DisplayName: "run_name_1",
+		RunDetails: model.RunDetails{
+			CreatedAtInSec: 1,
+			Conditions:     "Succeeded",
+			State:          model.RuntimeStateSucceededV1,
+		},
 	}
 	protoFilter := &api.Filter{}
 	protoFilter.Predicates = []*api.Predicate{
@@ -982,7 +1052,8 @@ func TestAddStatusFilterToSelectWithRunModel(t *testing.T) {
 			Value: &api.Predicate_StringValue{StringValue: "Succeeded"},
 		},
 	}
-	listableOptions, err := NewOptions(listable, 10, "name", protoFilter)
+	newFilter, _ := filter.New(protoFilter)
+	listableOptions, err := NewOptions(listable, 10, "name", newFilter)
 	assert.Nil(t, err)
 	sqlBuilder := sq.Select("*").From("run_details")
 	sql, args, err := listableOptions.AddFilterToSelect(sqlBuilder).ToSql()
@@ -998,7 +1069,8 @@ func TestAddStatusFilterToSelectWithRunModel(t *testing.T) {
 			Value: &api.Predicate_StringValue{StringValue: "somevalue"},
 		},
 	}
-	listableOptions, err = NewOptions(listable, 10, "name", notEqualProtoFilter)
+	newNotEqualFilter, _ := filter.New(notEqualProtoFilter)
+	listableOptions, err = NewOptions(listable, 10, "name", newNotEqualFilter)
 	assert.Nil(t, err)
 	sqlBuilder = sq.Select("*").From("run_details")
 	sql, args, err = listableOptions.AddFilterToSelect(sqlBuilder).ToSql()

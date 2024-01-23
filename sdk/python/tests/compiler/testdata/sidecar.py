@@ -12,17 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfp.dsl as dsl
-from kubernetes import client as k8s_client
+import kfp.deprecated.dsl as dsl
 
 
 @dsl.pipeline(name='Sidecar', description='A pipeline with sidecars.')
 def sidecar_pipeline():
 
     echo = dsl.Sidecar(
-        name='echo',
-        image='hashicorp/http-echo',
-        args=['-text="hello world"'])
+        name='echo', image='hashicorp/http-echo', args=['-text="hello world"'])
 
     op1 = dsl.ContainerOp(
         name='download',

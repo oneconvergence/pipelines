@@ -2,9 +2,9 @@
 
 ## Tools you need
 
-You need `node v12` and `npm`.
+You need `node v14` and `npm`.
 Recommend installing `node` and `npm` using https://github.com/nvm-sh/nvm. After installing nvm,
-you can install `node v12` by `nvm install 12`.
+you can install `node v14` by `nvm install 14`.
 
 ## Manage dev environment with npm
 
@@ -54,6 +54,12 @@ development.
 
 Run `npm run mock:api` to start a mock backend api server handler so it can
 serve basic api calls with mock data.
+
+If you want to port real MLMD store to be used for mock backend scenario, you can run the following command. Note that a mock MLMD store doesn't exist yet. 
+
+```
+kubectl port-forward svc/metadata-envoy-service 9090:9090
+```
 
 ### Proxy to a real cluster
 
@@ -138,9 +144,13 @@ If you made any changes to protos (see backend/README), you'll need to
 regenerate the Typescript client library from swagger. We use
 swagger-codegen-cli@2.4.7, which you can get
 [here](https://repo1.maven.org/maven2/io/swagger/swagger-codegen-cli/2.4.7/).
-Make sure the jar file is somewhere on your path with the name
-swagger-codegen-cli.jar, then run `npm run apis`.
-
+Make sure to add the jar file to $PATH with the name swagger-codegen-cli.jar, then run `npm run apis` for 
+v1 api or `npm run apis:v2beta1` for v2 api.
+```
+// add jar file to $PATH
+JAR_PATH=<folder-path-to-jar-file>
+export PATH="$JAR_PATH:$PATH"
+```
 After code generation, you should run `npm run format` to format the output and avoid creating a large PR.
 
 ## MLMD components
@@ -166,8 +176,22 @@ If a file in [pipelines/third_party/ml-metadata/ml_metadata/proto](third_party/m
 
 * Add `protoc` ([download](https://github.com/protocolbuffers/protobuf/releases)) to your system
   PATH
+  
+  ```bash
+  # Example:
+  apt install -y protobuf-compiler=3.15.8
+  ```
+
 * Add `protoc-gen-grpc-web` ([download](https://github.com/grpc/grpc-web/releases)) to your system
   PATH
+
+  ```bash
+  # Example:
+  curl -LO https://github.com/grpc/grpc-web/releases/download/1.4.2/protoc-gen-grpc-web-1.4.2-linux-x86_64
+  mv protoc-gen-grpc-web-1.4.2-linux-x86_64 /usr/local/bin/protoc-gen-grpc-web
+  chmod +x /usr/local/bin/protoc-gen-grpc-web
+  ```
+
 * Replace `metadata_store.proto` and `metadata_store_service.proto` proto files with target mlmd version by running
 
   ```bash
@@ -212,15 +236,32 @@ Prerequisite: Add `protoc` ([download](https://github.com/protocolbuffers/protob
 Compile pipeline_spec.proto to Typed classes in TypeScript, 
 so it can convert a payload stream to a PipelineSpec object during runtime.
 
-You can check out the result like `pipeline_spec_pb.js`, `pipeline_spec_pb.d.ts` in [frontend/src/generated/pipeline_spec](frontend/src/generated/pipeline_spec).
+You can check out the result like `pipeline_spec_pb.js`, `pipeline_spec_pb.d.ts` in [frontend/src/generated/pipeline_spec](/frontend/src/generated/pipeline_spec).
 
+The plugin tool for convertion we currently use is [ts-proto](https://github.com/stephenh/ts-proto). We previously use 
+[protobuf.js](https://github.com/protobufjs/protobuf.js) but it doesn't natively support Protobuf.Value processing. 
 
+You can checkout the generated TypeScript interfaces in [frontend/src/generated/pipeline_spec/pipeline_spec.ts](/frontend/src/generated/pipeline_spec/pipeline_spec.ts) 
+
+<!-- ARCHIVE: We switched to use ts-proto for now.
 ### Encode plain object to buffer using protobuf.js
 
 protoc doesn't provide a way to convert plain object to
 payload stream, therefore we need a helper tool `protobuf.js` to validate and encode plain object.
 
 You can check out the result like `pbjs_ml_pipelines.js`, `pbjs_ml_pipelines.d.ts` in [frontend/src/generated/pipeline_spec](frontend/src/generated/pipeline_spec).
+-->
+
+## Platform Spec API
+For KFP v2, we use platform spec to represent a platform definition.
+
+### Kubernetes
+The details of Kubernetes platform is in [kubernetes_platform/proto/kubernetes_executor_config.proto](kubernetes_platform/proto/kubernetes_executor_config.proto). To take the latest of this file and compile it to Typescript classes, follow the below step:
+
+```
+npm run build:platform-spec:kubernetes-platform
+```
+
 
 ## Large features development
 

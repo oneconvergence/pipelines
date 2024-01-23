@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from kfp import components
-from kfp.v2 import dsl
-import kfp.v2.compiler as compiler
+from kfp import dsl
+import kfp.compiler as compiler
 
 component_op = components.load_component_from_text("""
 name: Component with concat placeholder
@@ -35,4 +35,4 @@ implementation:
 
 @dsl.pipeline(name='one-step-pipeline-with-concat-placeholder')
 def pipeline_with_concat_placeholder():
-  component = component_op(input_one='one', input_two='two')
+    component = component_op(input_one='one', input_two='two')

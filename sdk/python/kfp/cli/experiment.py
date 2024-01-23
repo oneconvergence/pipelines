@@ -1,108 +1,176 @@
 import click
-import json
-
-from kfp.cli.output import print_output, OutputFormat
+from kfp import client
+from kfp.cli import output
+from kfp.cli.utils import parsing
 
 
 @click.group()
 def experiment():
-    """Manage experiment resources"""
-    pass
+    """Manage experiment resources."""
 
 
 @experiment.command()
 @click.option(
     '-d',
     '--description',
-    help="Description of the experiment."
-)
-@click.argument("name")
+    help=parsing.get_param_descr(client.Client.create_experiment,
+                                 'description'))
+@click.argument('name')
 @click.pass_context
-def create(ctx, description, name):
-    """Create an experiment"""
-    client = ctx.obj["client"]
-    output_format = ctx.obj["output"]
+def create(ctx: click.Context, description: str, name: str):
+    """Create an experiment."""
+    client_obj: client.Client = ctx.obj['client']
+    output_format = ctx.obj['output']
 
-    response = client.create_experiment(name, description=description)
-    _display_experiment(response, output_format)
+    experiment = client_obj.create_experiment(name, description=description)
+    output.print_output(
+        experiment,
+        output.ModelType.EXPERIMENT,
+        output_format,
+    )
 
 
 @experiment.command()
 @click.option(
+    '--page-token',
+    default='',
+    help=parsing.get_param_descr(client.Client.list_experiments, 'page_token'))
+@click.option(
     '-m',
     '--max-size',
     default=100,
-    help="Max size of the listed experiments."
-)
+    help=parsing.get_param_descr(client.Client.list_experiments, 'page_size'))
+@click.option(
+    '--sort-by',
+    default='created_at desc',
+    help=parsing.get_param_descr(client.Client.list_experiments, 'sort_by'))
+@click.option(
+    '--filter',
+    help=parsing.get_param_descr(client.Client.list_experiments, 'filter'))
 @click.pass_context
-def list(ctx, max_size):
-    """List experiments"""
-    client = ctx.obj['client']
+def list(ctx: click.Context, page_token: str, max_size: int, sort_by: str,
+         filter: str):
+    """List experiments."""
+    client_obj: client.Client = ctx.obj['client']
     output_format = ctx.obj['output']
 
-    response = client.list_experiments(
+    response = client_obj.list_experiments(
+        page_token=page_token,
         page_size=max_size,
-        sort_by="created_at desc"
+        sort_by=sort_by,
+        filter=filter)
+    output.print_output(
+        response.experiments or [],
+        output.ModelType.EXPERIMENT,
+        output_format,
     )
-    if response.experiments:
-        _display_experiments(response.experiments, output_format)
-    else:
-        if output_format == OutputFormat.json.name:
-            msg = json.dumps([])
-        else:
-            msg = "No experiments found"
-        click.echo(msg)
 
 
 @experiment.command()
-@click.argument("experiment-id")
+@click.argument('experiment-id')
 @click.pass_context
-def get(ctx, experiment_id):
-    """Get detailed information about an experiment"""
-    client = ctx.obj["client"]
-    output_format = ctx.obj["output"]
+def get(ctx: click.Context, experiment_id: str):
+    """Get information about an experiment."""
+    client_obj: client.Client = ctx.obj['client']
+    output_format = ctx.obj['output']
 
-    response = client.get_experiment(experiment_id)
-    _display_experiment(response, output_format)
+    experiment = client_obj.get_experiment(experiment_id)
+    output.print_output(
+        experiment,
+        output.ModelType.EXPERIMENT,
+        output_format,
+    )
 
 
 @experiment.command()
-@click.argument("experiment-id")
+@click.argument('experiment-id')
 @click.pass_context
-def delete(ctx, experiment_id):
-    """Delete an experiment"""
+def delete(ctx: click.Context, experiment_id: str):
+    """Delete an experiment."""
 
-    confirmation = "Caution. The RunDetails page could have an issue" \
-                   " when it renders a run that has no experiment." \
-                   " Do you want to continue?"
+    confirmation = 'Caution. The RunDetails page could have an issue' \
+                   ' when it renders a run that has no experiment.' \
+                   ' Do you want to continue?'
     if not click.confirm(confirmation):
         return
 
-    client = ctx.obj["client"]
+    client_obj: client.Client = ctx.obj['client']
+    output_format = ctx.obj['output']
 
-    client.delete_experiment(experiment_id)
-    click.echo("{} is deleted.".format(experiment_id))
-
-
-def _display_experiments(experiments, output_format):
-    headers = ["Experiment ID", "Name", "Created at"]
-    data = [[
-        exp.id,
-        exp.name,
-        exp.created_at.isoformat()
-    ] for exp in experiments]
-    print_output(data, headers, output_format, table_format="grid")
+    client_obj.delete_experiment(experiment_id)
+    output.print_deleted_text('experiment', experiment_id, output_format)
 
 
-def _display_experiment(exp, output_format):
-    table = [
-        ["ID", exp.id],
-        ["Name", exp.name],
-        ["Description", exp.description],
-        ["Created at", exp.created_at.isoformat()],
-    ]
-    if output_format == OutputFormat.table.name:
-        print_output([], ["Experiment Details"], output_format)
-        print_output(table, [], output_format, table_format="plain")
-    elif output_format == OutputFormat.json.name:
-        print_output(dict(table), [], output_format)
+either_option_required = 'Either --experiment-id or --experiment-name is required.'
+
+
+@experiment.command()
+@click.option(
+    '--experiment-id',
+    default=None,
+    help=parsing.get_param_descr(client.Client.archive_experiment,
+                                 'experiment_id') + ' ' + either_option_required
+)
+@click.option(
+    '--experiment-name',
+    default=None,
+    help='Name of the experiment.' + ' ' + either_option_required)
+@click.pass_context
+def archive(ctx: click.Context, experiment_id: str, experiment_name: str):
+    """Archive an experiment."""
+    client_obj: client.Client = ctx.obj['client']
+    output_format = ctx.obj['output']
+
+    if (experiment_id is None) == (experiment_name is None):
+        raise ValueError(either_option_required)
+
+    if not experiment_id:
+        experiment = client_obj.get_experiment(experiment_name=experiment_name)
+        experiment_id = experiment.experiment_id
+
+    client_obj.archive_experiment(experiment_id=experiment_id)
+    if experiment_id:
+        experiment = client_obj.get_experiment(experiment_id=experiment_id)
+    else:
+        experiment = client_obj.get_experiment(experiment_name=experiment_name)
+    output.print_output(
+        experiment,
+        output.ModelType.EXPERIMENT,
+        output_format,
+    )
+
+
+@experiment.command()
+@click.option(
+    '--experiment-id',
+    default=None,
+    help=parsing.get_param_descr(client.Client.unarchive_experiment,
+                                 'experiment_id') + ' ' + either_option_required
+)
+@click.option(
+    '--experiment-name',
+    default=None,
+    help='Name of the experiment.' + ' ' + either_option_required)
+@click.pass_context
+def unarchive(ctx: click.Context, experiment_id: str, experiment_name: str):
+    """Unarchive an experiment."""
+    client_obj: client.Client = ctx.obj['client']
+    output_format = ctx.obj['output']
+
+    if (experiment_id is None) == (experiment_name is None):
+        raise ValueError(either_option_required)
+
+    if not experiment_id:
+        experiment = client_obj.get_experiment(experiment_name=experiment_name)
+        experiment_id = experiment.experiment_id
+
+    client_obj.unarchive_experiment(experiment_id=experiment_id)
+    if experiment_id:
+        experiment = client_obj.get_experiment(experiment_id=experiment_id)
+    else:
+        experiment = client_obj.get_experiment(experiment_name=experiment_name)
+    output.print_output(
+        experiment,
+        output.ModelType.EXPERIMENT,
+        output_format,
+    )

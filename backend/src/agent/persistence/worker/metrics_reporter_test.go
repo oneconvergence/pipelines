@@ -16,6 +16,7 @@ package worker
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -23,7 +24,7 @@ import (
 	"testing"
 
 	workflowapi "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
+	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/agent/persistence/client"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/stretchr/testify/assert"
@@ -176,9 +177,9 @@ func TestReportMetrics_Succeed(t *testing.T) {
 		Results: []*api.ReportRunMetricsResponse_ReportRunMetricResult{},
 	}, nil)
 
-	err := reporter.ReportMetrics(workflow)
+	err1 := reporter.ReportMetrics(workflow)
 
-	assert.Nil(t, err)
+	assert.Nil(t, err1)
 	expectedMetricsRequest := &api.ReportRunMetricsRequest{
 		RunId: "run-1",
 		Metrics: []*api.RunMetric{
@@ -197,7 +198,7 @@ func TestReportMetrics_Succeed(t *testing.T) {
 	got := pipelineFake.GetReportedMetricsRequest()
 	if diff := cmp.Diff(expectedMetricsRequest, got, cmpopts.EquateEmpty(), protocmp.Transform()); diff != "" {
 		t.Errorf("parseRuntimeInfo() = %+v, want %+v\nDiff (-want, +got)\n%s", got, expectedMetricsRequest, diff)
-		s, _ := json.MarshalIndent(expectedMetricsRequest ,"", "  ")
+		s, _ := json.MarshalIndent(expectedMetricsRequest, "", "  ")
 		fmt.Printf("Want %s", s)
 	}
 }
@@ -404,7 +405,7 @@ func TestReportMetrics_InvalidMetricsJSON_PartialFail(t *testing.T) {
 	got := pipelineFake.GetReportedMetricsRequest()
 	if diff := cmp.Diff(expectedMetricsRequest, got, cmpopts.EquateEmpty(), protocmp.Transform()); diff != "" {
 		t.Errorf("parseRuntimeInfo() = %+v, want %+v\nDiff (-want, +got)\n%s", got, expectedMetricsRequest, diff)
-		s, _ := json.MarshalIndent(expectedMetricsRequest ,"", "  ")
+		s, _ := json.MarshalIndent(expectedMetricsRequest, "", "  ")
 		fmt.Printf("Want %s", s)
 	}
 }
@@ -509,4 +510,48 @@ func TestReportMetrics_MultiplMetricErrors_TransientErrowWin(t *testing.T) {
 
 	assert.NotNil(t, err)
 	assert.True(t, util.HasCustomCode(err, util.CUSTOM_CODE_TRANSIENT))
+}
+
+func TestReportMetrics_Unauthorized(t *testing.T) {
+	pipelineFake := client.NewPipelineClientFake()
+	reporter := NewMetricsReporter(pipelineFake)
+
+	workflow := util.NewWorkflow(&workflowapi.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "MY_NAMESPACE",
+			Name:      "MY_NAME",
+			UID:       types.UID("run-1"),
+			Labels:    map[string]string{util.LabelKeyWorkflowRunId: "run-1"},
+		},
+		Status: workflowapi.WorkflowStatus{
+			Nodes: map[string]workflowapi.NodeStatus{
+				"node-1": workflowapi.NodeStatus{
+					ID:    "node-1",
+					Phase: workflowapi.NodeSucceeded,
+					Outputs: &workflowapi.Outputs{
+						Artifacts: []workflowapi.Artifact{{Name: "mlpipeline-metrics"}},
+					},
+				},
+			},
+		},
+	})
+	metricsJSON := `{"metrics": [{"name": "accuracy", "numberValue": 0.77}, {"name": "logloss", "numberValue": 1.2}]}`
+	artifactData, _ := util.ArchiveTgz(map[string]string{"file": metricsJSON})
+	pipelineFake.StubArtifact(
+		&api.ReadArtifactRequest{
+			RunId:        "run-1",
+			NodeId:       "node-1",
+			ArtifactName: "mlpipeline-metrics",
+		},
+		&api.ReadArtifactResponse{
+			Data: []byte(artifactData),
+		})
+	pipelineFake.StubReportRunMetrics(&api.ReportRunMetricsResponse{
+		Results: []*api.ReportRunMetricsResponse_ReportRunMetricResult{},
+	}, errors.New("failed to read artifacts"))
+
+	err1 := reporter.ReportMetrics(workflow)
+
+	assert.NotNil(t, err1)
+	assert.Contains(t, err1.Error(), "failed to read artifacts")
 }

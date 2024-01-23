@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfp.dsl as dsl
-from kfp.dsl import _for_loop
+import kfp.deprecated.dsl as dsl
 
 
 @dsl.pipeline(name='my-pipeline')
@@ -23,7 +22,8 @@ def pipeline(loopidy_doop: dict = [{'a': 1, 'b': 2}, {'a': 10, 'b': 20}]):
         image='python:alpine3.6',
         command=["sh", "-c"],
         arguments=[
-            'python -c "import json; import sys; json.dump([i for i in range(20, 31)], open(\'/tmp/out.json\', \'w\'))"'],
+            'python -c "import json; import sys; json.dump([i for i in range(20, 31)], open(\'/tmp/out.json\', \'w\'))"'
+        ],
         file_outputs={'out': '/tmp/out.json'},
     )
 
@@ -44,9 +44,10 @@ def pipeline(loopidy_doop: dict = [{'a': 1, 'b': 2}, {'a': 10, 'b': 20}]):
 
 
 if __name__ == '__main__':
-    from kfp import compiler
-    import kfp
     import time
+
+    from kfp.deprecated import compiler
+    import kfp.deprecated as kfp
     client = kfp.Client(host='127.0.0.1:8080/pipeline')
     print(compiler.Compiler().compile(pipeline, package_path=None))
 

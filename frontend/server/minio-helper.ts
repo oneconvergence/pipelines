@@ -17,7 +17,8 @@ import * as tar from 'tar-stream';
 import peek from 'peek-stream';
 import gunzip from 'gunzip-maybe';
 import { Client as MinioClient, ClientOptions as MinioClientOptions } from 'minio';
-import { awsInstanceProfileCredentials } from './aws-helper';
+import { awsInstanceProfileCredentials, isS3Endpoint } from './aws-helper';
+const { fromNodeProviderChain } = require('@aws-sdk/credential-providers');
 
 /** MinioRequestConfig describes the info required to retrieve an artifact. */
 export interface MinioRequestConfig {
@@ -37,6 +38,25 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
  * @param config minio client options where `accessKey` and `secretKey` are optional.
  */
 export async function createMinioClient(config: MinioClientOptionsWithOptionalSecrets) {
+  // This logic is AWS S3 specific
+  if (isS3Endpoint(config.endPoint)) {
+    try {
+      const credentials = fromNodeProviderChain();
+      const aws_credentials = await credentials();
+      if (aws_credentials) {
+        const {
+          accessKeyId: accessKey,
+          secretAccessKey: secretKey,
+          sessionToken: sessionToken,
+        } = aws_credentials;
+        return new MinioClient({ ...config, accessKey, secretKey, sessionToken });
+      }
+    } catch (err) {
+      console.error('Unable to get credentials from AWS credential provider chain: ', err);
+    }
+  }
+
+  // This logic is S3 generic
   if (!config.accessKey || !config.secretKey) {
     try {
       if (await awsInstanceProfileCredentials.ok()) {
@@ -101,8 +121,8 @@ export function maybeTarball(): Transform {
 function extractFirstTarRecordAsStream() {
   const extract = tar.extract();
   const transformStream = new Transform({
-    write: (chunk: any, encoding: string, callback: (error?: Error | null) => void) => {
-      extract.write(chunk, encoding, callback);
+    write: (chunk: any, _encoding: string, callback: (error?: Error | null) => void) => {
+      extract.write(chunk, callback);
     },
   });
   extract.once('entry', function(_header, stream, next) {

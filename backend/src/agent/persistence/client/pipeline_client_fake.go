@@ -15,13 +15,13 @@
 package client
 
 import (
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
+	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 type PipelineClientFake struct {
-	workflows                 map[string]*util.Workflow
+	workflows                 map[string]util.ExecutionSpec
 	scheduledWorkflows        map[string]*util.ScheduledWorkflow
 	err                       error
 	artifacts                 map[string]*api.ReadArtifactResponse
@@ -33,7 +33,7 @@ type PipelineClientFake struct {
 
 func NewPipelineClientFake() *PipelineClientFake {
 	return &PipelineClientFake{
-		workflows:                 make(map[string]*util.Workflow),
+		workflows:                 make(map[string]util.ExecutionSpec),
 		scheduledWorkflows:        make(map[string]*util.ScheduledWorkflow),
 		err:                       nil,
 		artifacts:                 make(map[string]*api.ReadArtifactResponse),
@@ -41,11 +41,11 @@ func NewPipelineClientFake() *PipelineClientFake {
 	}
 }
 
-func (p *PipelineClientFake) ReportWorkflow(workflow *util.Workflow) error {
+func (p *PipelineClientFake) ReportWorkflow(workflow util.ExecutionSpec) error {
 	if p.err != nil {
 		return p.err
 	}
-	p.workflows[getKey(workflow.Namespace, workflow.Name)] = workflow
+	p.workflows[getKey(workflow.ExecutionNamespace(), workflow.ExecutionName())] = workflow
 	return nil
 }
 
@@ -58,6 +58,9 @@ func (p *PipelineClientFake) ReportScheduledWorkflow(swf *util.ScheduledWorkflow
 }
 
 func (p *PipelineClientFake) ReadArtifact(request *api.ReadArtifactRequest) (*api.ReadArtifactResponse, error) {
+	if p.err != nil {
+		return nil, p.err
+	}
 	p.readArtifactRequest = request
 	return p.artifacts[request.String()], nil
 }
@@ -71,7 +74,7 @@ func (p *PipelineClientFake) SetError(err error) {
 	p.err = err
 }
 
-func (p *PipelineClientFake) GetWorkflow(namespace string, name string) *util.Workflow {
+func (p *PipelineClientFake) GetWorkflow(namespace string, name string) util.ExecutionSpec {
 	return p.workflows[getKey(namespace, name)]
 }
 

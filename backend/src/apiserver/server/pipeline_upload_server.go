@@ -19,21 +19,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
+	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/grpc/metadata"
 	authorizationv1 "k8s.io/api/authorization/v1"
 )
 
-// These are valid conditions of a ScheduledWorkflow.
 const (
 	FormFileKey               = "uploadfile"
 	NameQueryStringKey        = "name"
@@ -59,7 +59,9 @@ var (
 )
 
 type PipelineUploadServerOptions struct {
-	CollectMetrics bool
+	CollectMetrics bool `json:"collect_metrics,omitempty"`
+	// ApiVersion       string `default:"v2beta1" json:"api_version,omitempty"`
+	// DefaultNamespace string `default:"" json:"default_namespace,omitempty"`
 }
 
 type PipelineUploadServer struct {
@@ -67,15 +69,25 @@ type PipelineUploadServer struct {
 	options         *PipelineUploadServerOptions
 }
 
+func (s *PipelineUploadServer) UploadPipelineV1(w http.ResponseWriter, r *http.Request) {
+	s.uploadPipeline("v1beta1", w, r)
+}
+
+func (s *PipelineUploadServer) UploadPipeline(w http.ResponseWriter, r *http.Request) {
+	s.uploadPipeline("v2beta1", w, r)
+}
+
+// Creates a pipeline and a pipeline version.
 // HTTP multipart endpoint for uploading pipeline file.
 // https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html
 // This endpoint is not exposed through grpc endpoint, since grpc-gateway can't convert the gRPC
 // endpoint to the HTTP endpoint.
 // See https://github.com/grpc-ecosystem/grpc-gateway/issues/500
 // Thus we create the HTTP endpoint directly and using swagger to auto generate the HTTP client.
-func (s *PipelineUploadServer) UploadPipeline(w http.ResponseWriter, r *http.Request) {
+func (s *PipelineUploadServer) uploadPipeline(api_version string, w http.ResponseWriter, r *http.Request) {
 	if s.options.CollectMetrics {
 		uploadPipelineRequests.Inc()
+		uploadPipelineVersionRequests.Inc()
 	}
 
 	glog.Infof("Upload pipeline called")
@@ -86,58 +98,81 @@ func (s *PipelineUploadServer) UploadPipeline(w http.ResponseWriter, r *http.Req
 	}
 	defer file.Close()
 
-	pipelineFile, err := ReadPipelineFile(header.Filename, file, MaxFileLength)
+	pipelineFile, err := ReadPipelineFile(header.Filename, file, common.MaxFileLength)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Error read pipeline file."))
+		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Failed to read a pipeline spec file"))
 		return
 	}
 
-	namespaceQuery := r.URL.Query().Get(NamespaceStringQuery)
-	pipelineNamespace, err := GetPipelineNamespace(namespaceQuery)
+	pipelineNamespace := r.URL.Query().Get(NamespaceStringQuery)
+	pipelineNamespace = s.resourceManager.ReplaceNamespace(pipelineNamespace)
+	resourceAttributes := &authorizationv1.ResourceAttributes{
+		Namespace: pipelineNamespace,
+		Verb:      common.RbacResourceVerbCreate,
+	}
+	err = s.canUploadVersionedPipeline(r, "", resourceAttributes)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Invalid pipeline namespace."))
+		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Failed to create a pipeline due to authorization error"))
 		return
 	}
 
-	err = s.canUploadVersionedPipeline(r, pipelineNamespace)
-	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Authorization to namespace failed."))
-		return
-	}
 	fileNameQueryString := r.URL.Query().Get(NameQueryStringKey)
-	pipelineName, err := GetPipelineName(fileNameQueryString, header.Filename)
+	pipelineName := buildPipelineName(fileNameQueryString, header.Filename)
+	pipeline := &model.Pipeline{
+		Name:        pipelineName,
+		Description: r.URL.Query().Get(DescriptionQueryStringKey),
+		Namespace:   pipelineNamespace,
+	}
+
+	pipelineVersion := &model.PipelineVersion{
+		Name:         pipeline.Name,
+		Description:  pipeline.Description,
+		PipelineSpec: string(pipelineFile),
+	}
+
+	newPipeline, newPipelineVersion, err := s.resourceManager.CreatePipelineAndPipelineVersion(pipeline, pipelineVersion)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Invalid pipeline name."))
+		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Failed to create a pipeline and a pipeline version"))
 		return
 	}
-	// We don't set a max length for pipeline description here, since in our DB the description type is longtext.
-	pipelineDescription, err := url.QueryUnescape(r.URL.Query().Get(DescriptionQueryStringKey))
-	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Error read pipeline description."))
-		return
-	}
-	newPipeline, err := s.resourceManager.CreatePipeline(pipelineName, pipelineDescription, pipelineNamespace, pipelineFile)
-	if err != nil {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Error creating pipeline"))
-		return
+
+	if s.options.CollectMetrics {
+		pipelineVersionCount.Inc()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	marshaler := &jsonpb.Marshaler{EnumsAsInts: false, OrigName: true}
-	err = marshaler.Marshal(w, ToApiPipeline(newPipeline))
+
+	if api_version == "v1beta1" {
+		err = marshaler.Marshal(w, toApiPipelineV1(newPipeline, newPipelineVersion))
+	} else if api_version == "v2beta1" {
+		err = marshaler.Marshal(w, toApiPipeline(newPipeline))
+	} else {
+		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Failed to create a pipeline. Invalid API version"))
+		return
+	}
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Error creating pipeline"))
+		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Failed to create a pipeline due to error marshalling the pipeline"))
 		return
 	}
 }
 
+func (s *PipelineUploadServer) UploadPipelineVersionV1(w http.ResponseWriter, r *http.Request) {
+	s.uploadPipelineVersion("v1beta1", w, r)
+}
+
+func (s *PipelineUploadServer) UploadPipelineVersion(w http.ResponseWriter, r *http.Request) {
+	s.uploadPipelineVersion("v2beta1", w, r)
+}
+
+// Creates a pipeline version under an existing pipeline.
 // HTTP multipart endpoint for uploading pipeline version file.
 // https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html
 // This endpoint is not exposed through grpc endpoint, since grpc-gateway can't convert the gRPC
 // endpoint to the HTTP endpoint.
 // See https://github.com/grpc-ecosystem/grpc-gateway/issues/500
 // Thus we create the HTTP endpoint directly and using swagger to auto generate the HTTP client.
-func (s *PipelineUploadServer) UploadPipelineVersion(w http.ResponseWriter, r *http.Request) {
+func (s *PipelineUploadServer) uploadPipelineVersion(api_version string, w http.ResponseWriter, r *http.Request) {
 	if s.options.CollectMetrics {
 		uploadPipelineVersionRequests.Inc()
 	}
@@ -145,94 +180,106 @@ func (s *PipelineUploadServer) UploadPipelineVersion(w http.ResponseWriter, r *h
 	glog.Infof("Upload pipeline version called")
 	file, header, err := r.FormFile(FormFileKey)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Failed to read pipeline version from file"))
+		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Failed to create a pipeline version due to error parsing pipeline spec filename"))
 		return
 	}
 	defer file.Close()
 
-	pipelineFile, err := ReadPipelineFile(header.Filename, file, MaxFileLength)
+	pipelineFile, err := ReadPipelineFile(header.Filename, file, common.MaxFileLength)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Error read pipeline version file."))
+		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Failed to create a pipeline version due to error reading pipeline spec file"))
 		return
 	}
-
-	versionNameQueryString := r.URL.Query().Get(NameQueryStringKey)
-	// If new version's name is not included in query string, use file name.
-	pipelineVersionName, err := GetPipelineName(versionNameQueryString, header.Filename)
-	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Invalid pipeline version name."))
-		return
-	}
-
 	pipelineId := r.URL.Query().Get(PipelineKey)
-	if len(pipelineId) == 0 {
-		s.writeErrorToResponse(w, http.StatusBadRequest, errors.New("Please specify a pipeline id when creating versions."))
+	if pipelineId == "" {
+		s.writeErrorToResponse(w, http.StatusBadRequest, errors.New("Failed to create a pipeline version due to error reading pipeline id"))
 		return
 	}
-
-	namespace, err := s.resourceManager.GetNamespaceFromPipelineID(pipelineId)
+	namespace, err := s.resourceManager.FetchNamespaceFromPipelineId(pipelineId)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Failed to get namespace from pipelineId."))
+		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Failed to create a pipeline version due to error reading namespace"))
 		return
 	}
 
-	err = s.canUploadVersionedPipeline(r, namespace)
+	resourceAttributes := &authorizationv1.ResourceAttributes{
+		Namespace: namespace,
+		Verb:      common.RbacResourceVerbCreate,
+	}
+	err = s.canUploadVersionedPipeline(r, pipelineId, resourceAttributes)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Authorization to namespace failed."))
+		s.writeErrorToResponse(w, http.StatusBadRequest, util.Wrap(err, "Failed to create a pipeline version due to authorization error"))
 		return
 	}
 
+	// If new version's name is not included in query string, use file name.
+	versionNameQueryString := r.URL.Query().Get(NameQueryStringKey)
+	pipelineVersionName := buildPipelineName(versionNameQueryString, header.Filename)
 	newPipelineVersion, err := s.resourceManager.CreatePipelineVersion(
-		&api.PipelineVersion{
-			Name: pipelineVersionName,
-			ResourceReferences: []*api.ResourceReference{
-				&api.ResourceReference{
-					Key: &api.ResourceKey{
-						Id:   pipelineId,
-						Type: api.ResourceType_PIPELINE,
-					},
-					Relationship: api.Relationship_OWNER,
-				},
-			},
-		}, pipelineFile, common.IsPipelineVersionUpdatedByDefault())
+		&model.PipelineVersion{
+			Name:         pipelineVersionName,
+			Description:  r.URL.Query().Get(DescriptionQueryStringKey),
+			PipelineId:   pipelineId,
+			PipelineSpec: string(pipelineFile),
+		},
+	)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Error creating pipeline version"))
+		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Failed to create a pipeline version"))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	marshaler := &jsonpb.Marshaler{EnumsAsInts: false, OrigName: true}
-	createdPipelineVersion, err := ToApiPipelineVersion(newPipelineVersion)
-	if err != nil {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Error creating pipeline version"))
+	if api_version == "v1beta1" {
+		err = marshaler.Marshal(w, toApiPipelineVersionV1(newPipelineVersion))
+	} else if api_version == "v2beta1" {
+		err = marshaler.Marshal(w, toApiPipelineVersion(newPipelineVersion))
+	} else {
+		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Failed to create a pipeline version. Invalid API version"))
 		return
 	}
-	err = marshaler.Marshal(w, createdPipelineVersion)
+
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Error creating pipeline version"))
+		s.writeErrorToResponse(w, http.StatusInternalServerError, util.Wrap(err, "Failed to create a pipeline version due to marshalling error"))
 		return
 	}
 
 	if s.options.CollectMetrics {
-		pipelineCount.Inc()
+		pipelineVersionCount.Inc()
 	}
 }
 
-func (s *PipelineUploadServer) canUploadVersionedPipeline(r *http.Request, namespace string) error {
-	if namespace == "" {
+func (s *PipelineUploadServer) canUploadVersionedPipeline(r *http.Request, pipelineId string, resourceAttributes *authorizationv1.ResourceAttributes) error {
+	if !common.IsMultiUserMode() {
+		// Skip authorization if not multi-user mode.
 		return nil
 	}
-	userIdentityHeader := r.Header.Get(common.GetKubeflowUserIDHeader())
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: namespace,
-		Verb:      common.RbacResourceVerbCreate,
-		Group:     common.RbacPipelinesGroup,
-		Version:   common.RbacPipelinesVersion,
-		Resource:  common.RbacResourceTypePipelines,
+	if len(pipelineId) > 0 {
+		namespace, err := s.resourceManager.FetchNamespaceFromPipelineId(pipelineId)
+		if err != nil {
+			return util.Wrap(err, "Failed to authorize with the Pipeline ID")
+		}
+		if len(resourceAttributes.Namespace) == 0 {
+			resourceAttributes.Namespace = namespace
+		}
 	}
-	err := s.resourceManager.IsRequestAuthorized(context.TODO(), userIdentityHeader, resourceAttributes)
+	if resourceAttributes.Namespace == "" {
+		return nil
+	}
+
+	resourceAttributes.Group = common.RbacPipelinesGroup
+	resourceAttributes.Version = common.RbacPipelinesVersion
+	resourceAttributes.Resource = common.RbacResourceTypePipelines
+
+	ctx := context.Background()
+	md := metadata.MD{}
+	for key, values := range r.Header {
+		md.Set(key, values...)
+	}
+	ctx = metadata.NewIncomingContext(ctx, md)
+
+	err := s.resourceManager.IsAuthorized(ctx, resourceAttributes)
 	if err != nil {
-		return util.Wrap(err, "Authorization Failure.")
+		return util.Wrap(err, "Authorization Failure")
 	}
 	return nil
 }
@@ -240,7 +287,7 @@ func (s *PipelineUploadServer) canUploadVersionedPipeline(r *http.Request, names
 func (s *PipelineUploadServer) writeErrorToResponse(w http.ResponseWriter, code int, err error) {
 	glog.Errorf("Failed to upload pipelines. Error: %+v", err)
 	w.WriteHeader(code)
-	errorResponse := api.Error{ErrorMessage: err.Error(), ErrorDetails: fmt.Sprintf("%+v", err)}
+	errorResponse := &apiv1beta1.Error{ErrorMessage: err.Error(), ErrorDetails: fmt.Sprintf("%+v", err)}
 	errBytes, err := json.Marshal(errorResponse)
 	if err != nil {
 		w.Write([]byte("Error uploading pipeline"))
@@ -250,12 +297,4 @@ func (s *PipelineUploadServer) writeErrorToResponse(w http.ResponseWriter, code 
 
 func NewPipelineUploadServer(resourceManager *resource.ResourceManager, options *PipelineUploadServerOptions) *PipelineUploadServer {
 	return &PipelineUploadServer{resourceManager: resourceManager, options: options}
-}
-
-func GetPipelineNamespace(queryString string) (string, error) {
-	pipelineNamespace, err := url.QueryUnescape(queryString)
-	if err != nil {
-		return "", util.NewInvalidInputErrorWithDetails(err, "Pipeline namespace in the query string has invalid format.")
-	}
-	return pipelineNamespace, nil
 }

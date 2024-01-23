@@ -29,6 +29,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/cache/storage"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,7 +39,6 @@ const (
 	KFPCachedLabelKey          string = "pipelines.kubeflow.org/reused_from_cache"
 	KFPCachedLabelValue        string = "true"
 	ArgoWorkflowNodeName       string = "workflows.argoproj.io/node-name"
-	ArgoWorkflowTemplate       string = "workflows.argoproj.io/template"
 	ExecutionKey               string = "pipelines.kubeflow.org/execution_cache_key"
 	CacheIDLabelKey            string = "pipelines.kubeflow.org/cache_id"
 	ArgoWorkflowOutputs        string = "workflows.argoproj.io/outputs"
@@ -103,8 +103,8 @@ func MutatePodIfCached(req *v1beta1.AdmissionRequest, clientMgr ClientManagerInt
 	var patches []patchOperation
 	annotations := pod.ObjectMeta.Annotations
 	labels := pod.ObjectMeta.Labels
-	template, exists := annotations[ArgoWorkflowTemplate]
-	var executionHashKey string
+
+	template, exists := getArgoTemplate(&pod)
 	if !exists {
 		return patches, nil
 	}
@@ -119,14 +119,37 @@ func MutatePodIfCached(req *v1beta1.AdmissionRequest, clientMgr ClientManagerInt
 
 	annotations[ExecutionKey] = executionHashKey
 	labels[CacheIDLabelKey] = ""
-	var maxCacheStalenessInSeconds int64 = -1
-	maxCacheStaleness, exists := annotations[MaxCacheStalenessKey]
+
+	var cacheStalenessInSeconds int64 = -1
+	var userCacheStalenessInSeconds int64 = -1
+	var defaultCacheStalenessInSeconds int64 = -1
+	var maximumCacheStalenessInSeconds int64 = -1
+
+	userCacheStaleness, exists := annotations[MaxCacheStalenessKey]
 	if exists {
-		maxCacheStalenessInSeconds = getMaxCacheStaleness(maxCacheStaleness)
+		userCacheStalenessInSeconds = stalenessToSeconds(userCacheStaleness)
+	}
+	defaultCacheStaleness, exists := os.LookupEnv("DEFAULT_CACHE_STALENESS")
+	if exists {
+		defaultCacheStalenessInSeconds = stalenessToSeconds(defaultCacheStaleness)
+	}
+	maximumCacheStaleness, exists := os.LookupEnv("MAXIMUM_CACHE_STALENESS")
+	if exists {
+		maximumCacheStalenessInSeconds = stalenessToSeconds(maximumCacheStaleness)
 	}
 
+	if userCacheStalenessInSeconds < 0 {
+		cacheStalenessInSeconds = defaultCacheStalenessInSeconds
+	} else {
+		cacheStalenessInSeconds = userCacheStalenessInSeconds
+	}
+	if maximumCacheStalenessInSeconds >= 0 && cacheStalenessInSeconds > maximumCacheStalenessInSeconds {
+		cacheStalenessInSeconds = maximumCacheStalenessInSeconds
+	}
+	log.Printf("cacheStalenessInSeconds: %d", cacheStalenessInSeconds)
+
 	var cachedExecution *model.ExecutionCache
-	cachedExecution, err = clientMgr.CacheStore().GetExecutionCache(executionHashKey, maxCacheStalenessInSeconds)
+	cachedExecution, err = clientMgr.CacheStore().GetExecutionCache(executionHashKey, cacheStalenessInSeconds, maximumCacheStalenessInSeconds)
 	if err != nil {
 		log.Println(err.Error())
 	}
@@ -152,6 +175,12 @@ func MutatePodIfCached(req *v1beta1.AdmissionRequest, clientMgr ClientManagerInt
 			Name:    "main",
 			Image:   image,
 			Command: []string{`echo`, `"This step output is taken from cache."`},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("0.01"),
+					corev1.ResourceMemory: resource.MustParse("16Mi"),
+				},
+			},
 		}
 		dummyContainers := []corev1.Container{
 			dummyContainer,
@@ -169,13 +198,13 @@ func MutatePodIfCached(req *v1beta1.AdmissionRequest, clientMgr ClientManagerInt
 			if pod.Spec.Affinity != nil {
 				patches = append(patches, patchOperation{
 					Op:   OperationTypeRemove,
-					Path: "spec/affinity",
+					Path: "/spec/affinity",
 				})
 			}
 			if pod.Spec.NodeSelector != nil {
 				patches = append(patches, patchOperation{
 					Op:   OperationTypeRemove,
-					Path: "spec/nodeSelector",
+					Path: "/spec/nodeSelector",
 				})
 			}
 		}

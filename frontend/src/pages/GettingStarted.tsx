@@ -17,61 +17,36 @@
 import Markdown from 'markdown-to-jsx';
 import * as React from 'react';
 import { classes, cssRaw } from 'typestyle';
-import { ApiFilter, PredicateOp } from '../apis/filter/api';
-import { AutoLink } from '../atoms/ExternalLink';
-import { RoutePageFactory } from '../components/Router';
-import { ToolbarProps } from '../components/Toolbar';
-import SAMPLE_CONFIG from '../config/sample_config_from_backend.json';
-import { commonCss, padding } from '../Css';
-import { Apis } from '../lib/Apis';
-import Buttons from '../lib/Buttons';
+import { V2beta1Filter, V2beta1PredicateOperation } from 'src/apisv2beta1/filter';
+import { AutoLink } from 'src/atoms/ExternalLink';
+import { RoutePageFactory } from 'src/components/Router';
+import { ToolbarProps } from 'src/components/Toolbar';
+import SAMPLE_CONFIG from 'src/config/sample_config_from_backend.json';
+import { commonCss, padding } from 'src/Css';
+import { Apis } from 'src/lib/Apis';
+import Buttons from 'src/lib/Buttons';
 import { Page } from './Page';
 
 const DEMO_PIPELINES: string[] = SAMPLE_CONFIG;
 const DEMO_PIPELINES_ID_MAP = {
-  control: 3,
-  data: 2,
-  tfx: 1,
-  xgboost: 0,
-  v2python: 4,
+  control: 1,
+  data: 0,
 };
 
-const PAGE_CONTENT_MD = ({
-  control,
-  data,
-  tfx,
-  xgboost,
-  v2python,
-}: {
-  control: string;
-  data: string;
-  tfx: string;
-  xgboost: string;
-  v2python: string;
-}) => `
+const PAGE_CONTENT_MD = ({ control, data }: { control: string; data: string }) => `
 <br/>
 
 ## Build your own pipeline with
 
-  * Kubeflow Pipelines [SDK](https://www.kubeflow.org/docs/pipelines/sdk/)
-    * Try out [the new Kubeflow Pipelines SDK v2 (Beta)](https://www.kubeflow.org/docs/components/pipelines/sdk/v2/v2-compatibility/)
-  * TensorFlow Extended (TFX) [SDK](https://www.tensorflow.org/tfx/guide) with end-to-end ML Pipeline Template ([Open a Cloud AI Platform Notebook on Google Cloud](https://console.cloud.google.com/mlengine/notebooks/deploy-notebook?q=download_url%3Dhttps%253A%252F%252Fraw.githubusercontent.com%252Ftensorflow%252Ftfx%252Fmaster%252Fdocs%252Ftutorials%252Ftfx%252Ftemplate.ipynb))
+* Kubeflow Pipelines [SDK](https://www.kubeflow.org/docs/pipelines/sdk/v2/)
 
 <br/>
 
 ## Demonstrations and Tutorials
 This section contains demo and tutorial pipelines.
 
-**Demos** - Try an end-to-end demonstration pipeline.
-
-  * [TFX pipeline demo with Estimator](${tfx}) - Classification pipeline with model analysis, based on a public BigQuery dataset of taxicab trips. [source code](https://github.com/kubeflow/pipelines/tree/master/samples/core/parameterized_tfx_oss)
-  * [XGBoost Pipeline demo](${xgboost}) - An example of end-to-end iterative XGBoost model training. [source code](https://github.com/kubeflow/pipelines/tree/master/samples/core/train_until_good)
-
-<br/>
-
 **Tutorials** - Learn pipeline concepts by following a tutorial.
 
-* [V2 Python function based components](${v2python}) - Shows different component input and output options for KFP v2 components. [source code](https://github.com/kubeflow/pipelines/blob/master/samples/v2/lightweight_python_functions_v2_pipeline/lightweight_python_functions_v2_pipeline.py)
 * [Data passing in Python components](${data}) - Shows how to pass data between Python components. [source code](https://github.com/kubeflow/pipelines/tree/master/samples/tutorials/Data%20passing%20in%20python%20components)
 * [DSL - Control structures](${control}) - Shows how to use conditional execution and exit handlers. [source code](https://github.com/kubeflow/pipelines/tree/master/samples/tutorials/DSL%20-%20Control%20structures)
 
@@ -104,6 +79,7 @@ cssRaw(`
 
 const OPTIONS = {
   overrides: { a: { component: AutoLink } },
+  disableParsingRawHTML: true,
 };
 
 export class GettingStarted extends Page<{}, { links: string[] }> {
@@ -120,18 +96,19 @@ export class GettingStarted extends Page<{}, { links: string[] }> {
     };
   }
 
+  // token size sort filter
   public async componentDidMount() {
     const ids = await Promise.all(
       DEMO_PIPELINES.map(name =>
-        Apis.pipelineServiceApi
-          .listPipelines(undefined, 10, undefined, createAndEncodeFilter(name))
+        Apis.pipelineServiceApiV2
+          .listPipelines(undefined, undefined, 10, undefined, createAndEncodeFilter(name))
           .then(pipelineList => {
             const pipelines = pipelineList.pipelines;
             if (pipelines?.length !== 1) {
               // This should be accurate, do not accept ambiguous results.
               return '';
             }
-            return pipelines[0].id || '';
+            return pipelines[0].pipeline_id || '';
           })
           .catch(() => ''),
       ),
@@ -150,9 +127,6 @@ export class GettingStarted extends Page<{}, { links: string[] }> {
           {PAGE_CONTENT_MD({
             control: this.state.links[DEMO_PIPELINES_ID_MAP.control],
             data: this.state.links[DEMO_PIPELINES_ID_MAP.data],
-            tfx: this.state.links[DEMO_PIPELINES_ID_MAP.tfx],
-            xgboost: this.state.links[DEMO_PIPELINES_ID_MAP.xgboost],
-            v2python: this.state.links[DEMO_PIPELINES_ID_MAP.v2python],
           })}
         </Markdown>
       </div>
@@ -168,11 +142,11 @@ function getPipelineLink(id: string) {
 }
 
 function createAndEncodeFilter(filterString: string): string {
-  const filter: ApiFilter = {
+  const filter: V2beta1Filter = {
     predicates: [
       {
         key: 'name',
-        op: PredicateOp.EQUALS,
+        operation: V2beta1PredicateOperation.EQUALS,
         string_value: filterString,
       },
     ],

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2019 The Kubeflow Authors
+# Copyright 2019-2023 The Kubeflow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
 # limitations under the License.
 
 
-import kfp
-from kfp import dsl
+from kfp import dsl, compiler
 
 def gcs_download_op(url):
     return dsl.ContainerOp(
@@ -54,4 +53,4 @@ def download_and_join(
     echo_task = echo2_op(download1_task.output, download2_task.output)
 
 if __name__ == '__main__':
-    kfp.compiler.Compiler().compile(download_and_join, __file__ + '.yaml')
+    compiler.Compiler().compile(download_and_join, __file__ + '.yaml')

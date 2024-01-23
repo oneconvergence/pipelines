@@ -22,9 +22,12 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/jsonpb"
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
+	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/filter"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 )
 
@@ -33,55 +36,24 @@ const (
 	maxPageSize     = 200
 )
 
-var experimentModelFieldsBySortableAPIFields = map[string]string{
-	// Sort by CreatedAtInSec by default
-	"":           "CreatedAtInSec",
-	"id":         "UUID",
-	"name":       "Name",
-	"created_at": "CreatedAtInSec",
-}
-
-var pipelineModelFieldsBySortableAPIFields = map[string]string{
-	// Sort by CreatedAtInSec by default
-	"":           "CreatedAtInSec",
-	"id":         "UUID",
-	"name":       "Name",
-	"created_at": "CreatedAtInSec",
-}
-
-var jobModelFieldsBySortableAPIFields = map[string]string{
-	// Sort by CreatedAtInSec by default
-	"":           "CreatedAtInSec",
-	"id":         "UUID",
-	"name":       "DisplayName",
-	"created_at": "CreatedAtInSec",
-	"package_id": "PipelineId",
-}
-
-var runModelFieldsBySortableAPIFields = map[string]string{
-	// Sort by CreatedAtInSec by default
-	"":           "CreatedAtInSec",
-	"name":       "DisplayName",
-	"created_at": "CreatedAtInSec",
-}
-
-func ValidateFilter(referenceKey *api.ResourceKey) (*common.FilterContext, error) {
-	filterContext := &common.FilterContext{}
+func validateFilterV1(referenceKey *apiv1beta1.ResourceKey) (*model.FilterContext, error) {
+	filterContext := &model.FilterContext{}
 	if referenceKey != nil {
-		refType, err := common.ToModelResourceType(referenceKey.Type)
+		refType, err := toModelResourceTypeV1(referenceKey.Type)
 		if err != nil {
-			return nil, util.Wrap(err, "Unrecognized resource reference type.")
+			return nil, util.Wrap(err, "Unrecognized resource reference type")
 		}
-		filterContext.ReferenceKey = &common.ReferenceKey{Type: refType, ID: referenceKey.Id}
+		filterContext.ReferenceKey = &model.ReferenceKey{Type: refType, ID: referenceKey.Id}
 	}
 	return filterContext, nil
 }
 
-func ValidatePagination(pageToken string, pageSize int, keyFieldName string, queryString string,
-	modelFieldByApiFieldMapping map[string]string) (*common.PaginationContext, error) {
+func validatePagination(pageToken string, pageSize int, keyFieldName string, queryString string,
+	modelFieldByApiFieldMapping map[string]string,
+) (*common.PaginationContext, error) {
 	sortByFieldName, isDesc, err := parseSortByQueryString(queryString, modelFieldByApiFieldMapping)
 	if err != nil {
-		return nil, util.Wrap(err, "Invalid query string.")
+		return nil, util.Wrap(err, "Invalid query string")
 	}
 	if pageSize < 0 {
 		return nil, util.NewInvalidInputError("The page size should be greater than 0. Got %v", strconv.Itoa(pageSize))
@@ -99,14 +71,15 @@ func ValidatePagination(pageToken string, pageSize int, keyFieldName string, que
 	}
 	token, err := deserializePageToken(pageToken)
 	if err != nil {
-		return nil, util.Wrap(err, "Invalid page token.")
+		return nil, util.Wrap(err, "Invalid page token")
 	}
 	return &common.PaginationContext{
 		PageSize:        pageSize,
 		SortByFieldName: sortByFieldName,
 		KeyFieldName:    keyFieldName,
 		IsDesc:          isDesc,
-		Token:           token}, nil
+		Token:           token,
+	}, nil
 }
 
 func parseSortByQueryString(queryString string, modelFieldByApiFieldMapping map[string]string) (string, bool, error) {
@@ -115,7 +88,7 @@ func parseSortByQueryString(queryString string, modelFieldByApiFieldMapping map[
 	// Check the query string format.
 	if len(queryList) > 2 || (len(queryList) == 2 && queryList[1] != "desc" && queryList[1] != "asc") {
 		return "", false, util.NewInvalidInputError(
-			"Received invalid sort by format `%v`. Supported format: \"field_name\", \"field_name desc\", or \"field_name asc\"", queryString)
+			"Received invalid sort by format '%v'. Supported format: \"field_name\", \"field_name desc\", or \"field_name asc\"", queryString)
 	}
 	isDesc := false
 	if len(queryList) == 2 && queryList[1] == "desc" {
@@ -128,7 +101,7 @@ func parseSortByQueryString(queryString string, modelFieldByApiFieldMapping map[
 	// Check if the field can be sorted.
 	sortByFieldName, ok := modelFieldByApiFieldMapping[sortByApiField]
 	if !ok {
-		return "", false, util.NewInvalidInputError("Cannot sort on field %v. Supported fields %v.",
+		return "", false, util.NewInvalidInputError("Cannot sort on field %v. Supported fields %v",
 			sortByApiField, keysString(modelFieldByApiFieldMapping))
 	}
 	return sortByFieldName, isDesc, nil
@@ -151,12 +124,12 @@ func deserializePageToken(pageToken string) (*common.Token, error) {
 	}
 	tokenBytes, err := base64.StdEncoding.DecodeString(pageToken)
 	if err != nil {
-		return nil, util.NewInvalidInputErrorWithDetails(err, "Invalid package token.")
+		return nil, util.NewInvalidInputErrorWithDetails(err, "Invalid package token")
 	}
 	var token common.Token
 	err = json.Unmarshal(tokenBytes, &token)
 	if err != nil {
-		return nil, util.NewInvalidInputErrorWithDetails(err, "Invalid package token.")
+		return nil, util.NewInvalidInputErrorWithDetails(err, "Invalid package token")
 	}
 	return &token, nil
 }
@@ -164,39 +137,50 @@ func deserializePageToken(pageToken string) (*common.Token, error) {
 // parseAPIFilter attempts to decode a url-encoded JSON-stringified api
 // filter object. An empty string is considered valid input, and equivalent to
 // the nil filter, which trivially does nothing.
-func parseAPIFilter(encoded string) (*api.Filter, error) {
+func parseAPIFilter(encoded string, apiVersion string) (interface{}, error) {
 	if encoded == "" {
 		return nil, nil
 	}
-
-	errorF := func(err error) (*api.Filter, error) {
-		return nil, util.NewInvalidInputError("failed to parse valid filter from %q: %v", encoded, err)
-	}
-
 	decoded, err := url.QueryUnescape(encoded)
 	if err != nil {
-		return errorF(err)
+		return nil, util.NewInvalidInputError("failed to parse valid filter from %q: %v", encoded, err)
 	}
-
-	f := &api.Filter{}
-	if err := jsonpb.UnmarshalString(string(decoded), f); err != nil {
-		return errorF(err)
+	switch apiVersion {
+	case "v2beta1":
+		f := &apiv2beta1.Filter{}
+		if err := jsonpb.UnmarshalString(decoded, f); err != nil {
+			return nil, util.NewInvalidInputError("failed to parse valid filter from %q: %v", encoded, err)
+		}
+		return f, nil
+	case "v1beta1":
+		f := &apiv1beta1.Filter{}
+		if err := jsonpb.UnmarshalString(decoded, f); err != nil {
+			return nil, util.NewInvalidInputError("failed to parse valid filter from %q: %v", encoded, err)
+		}
+		return f, nil
+	default:
+		return nil, util.NewUnknownApiVersionError("filter "+apiVersion, encoded)
 	}
-	return f, nil
 }
 
-func validatedListOptions(listable list.Listable, pageToken string, pageSize int, sortBy string, filterSpec string) (*list.Options, error) {
+// Validates list options for a given resource and listing parameters.
+// apiVersion cat be set to "v1beta1" or "v2beta1". Depending on the value,
+// the corresponding API filter message will be used when parsing filterSpec.
+func validatedListOptions(listable list.Listable, pageToken string, pageSize int, sortBy string, filterSpec string, apiVersion string) (*list.Options, error) {
 	defaultOpts := func() (*list.Options, error) {
 		if listable == nil {
-			return nil, util.NewInvalidInputError("Please specify a valid type to list. E.g., list runs or list jobs.")
+			return nil, util.NewInvalidInputError("Please specify a valid type to list. E.g., list runs or list jobs")
 		}
-
-		f, err := parseAPIFilter(filterSpec)
+		f, err := parseAPIFilter(filterSpec, apiVersion)
+		if err != nil {
+			return nil, err
+		}
+		newFilter, err := filter.New(f)
 		if err != nil {
 			return nil, err
 		}
 
-		return list.NewOptions(listable, pageSize, sortBy, f)
+		return list.NewOptions(listable, pageSize, sortBy, newFilter)
 	}
 
 	if pageToken == "" {
@@ -216,7 +200,7 @@ func validatedListOptions(listable list.Listable, pageToken string, pageSize int
 		}
 
 		if !opts.Matches(do) {
-			return nil, util.NewInvalidInputError("page token does not match the supplied sort by and/or filtering criteria. Either specify the same criteria or leave the latter empty if page token is specified.")
+			return nil, util.NewInvalidInputError("page token does not match the supplied sort by and/or filtering criteria. Either specify the same criteria or leave the latter empty if page token is specified")
 		}
 	}
 

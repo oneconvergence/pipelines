@@ -12,21 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfp
-import kfp.dsl as dsl
+import kfp.deprecated as kfp
 
-@dsl.pipeline(
-  name='Test adding pod env',
-  description='Test adding pod env'
-)
+
+@kfp.dsl.pipeline(name='Test adding pod env', description='Test adding pod env')
 def test_add_pod_env():
-    op = dsl.ContainerOp(
-     name='echo',
-     image='library/bash',
-     command=['sh', '-c'],
-     arguments=['echo $KFP_POD_NAME']).add_pod_label(
-         'add-pod-env', 'true'
-     )
-    
+    op = kfp.dsl.ContainerOp(
+        name='echo',
+        image='library/bash',
+        command=['sh', '-c'],
+        arguments=['echo $KFP_POD_NAME']).add_pod_label('add-pod-env', 'true')
+
+
 if __name__ == '__main__':
-    kfp.compiler.Compiler().compile(test_add_pod_env, __file__ + '.yaml')
+    import kfp.deprecated.compiler as compiler
+    compiler.Compiler().compile(test_add_pod_env, __file__ + '.yaml')

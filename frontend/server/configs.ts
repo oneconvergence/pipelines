@@ -15,8 +15,10 @@ import * as path from 'path';
 import { loadJSON } from './utils';
 import { loadArtifactsProxyConfig, ArtifactsProxyConfig } from './handlers/artifacts';
 export const BASEPATH = '/pipeline';
-export const apiVersion = 'v1beta1';
-export const apiVersionPrefix = `apis/${apiVersion}`;
+export const apiVersion1 = 'v1beta1';
+export const apiVersion1Prefix = `apis/${apiVersion1}`;
+export const apiVersion2 = 'v2beta1';
+export const apiVersion2Prefix = `apis/${apiVersion2}`;
 
 export enum Deployments {
   NOT_SPECIFIED = 'NOT_SPECIFIED',
@@ -58,8 +60,13 @@ export function loadConfigs(argv: string[], env: ProcessEnv): UIConfigs {
     /** minio client use these to retrieve s3 objects/artifacts */
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
+    AWS_REGION,
+    AWS_S3_ENDPOINT,
+    AWS_SSL = 'true',
     /** http/https base URL */
     HTTP_BASE_URL = '',
+    /** By default, allowing access to all domains. Modify this flag to allow querying matching domains */
+    ALLOWED_ARTIFACT_DOMAIN_REGEX = '^.*$',
     /** http/https fetch with this authorization header key (for example: 'Authorization') */
     HTTP_AUTHORIZATION_KEY = '',
     /** http/https fetch with this authorization header value by default when absent in client request at above key */
@@ -88,6 +95,8 @@ export function loadConfigs(argv: string[], env: ProcessEnv): UIConfigs {
     ARGO_ARCHIVE_PREFIX = 'artifacts',
     /** Should use server API for log streaming? */
     STREAM_LOGS_FROM_SERVER_API = 'false',
+    /** The main container name of a pod where logs are retrieved */
+    POD_LOG_CONTAINER_NAME = 'main',
     /** Disables GKE metadata endpoint. */
     DISABLE_GKE_METADATA = 'true',
     /** Enable authorization checks for multi user mode. */
@@ -120,11 +129,16 @@ export function loadConfigs(argv: string[], env: ProcessEnv): UIConfigs {
       archiveLogs: asBool(ARGO_ARCHIVE_LOGS),
       archivePrefix: ARGO_ARCHIVE_PREFIX,
     },
+    pod: {
+      logContainerName: POD_LOG_CONTAINER_NAME,
+    },
     artifacts: {
       aws: {
         accessKey: AWS_ACCESS_KEY_ID || '',
-        endPoint: 's3.amazonaws.com',
+        endPoint: AWS_S3_ENDPOINT || 's3.amazonaws.com',
+        region: AWS_REGION || 'us-east-1',
         secretKey: AWS_SECRET_ACCESS_KEY || '',
+        useSSL: asBool(AWS_SSL),
       },
       http: {
         auth: {
@@ -145,6 +159,7 @@ export function loadConfigs(argv: string[], env: ProcessEnv): UIConfigs {
       },
       proxy: loadArtifactsProxyConfig(env),
       streamLogsFromServerApi: asBool(STREAM_LOGS_FROM_SERVER_API),
+      allowedDomain: ALLOWED_ARTIFACT_DOMAIN_REGEX,
     },
     metadata: {
       envoyService: {
@@ -157,7 +172,8 @@ export function loadConfigs(argv: string[], env: ProcessEnv): UIConfigs {
       port: ML_PIPELINE_SERVICE_PORT,
     },
     server: {
-      apiVersionPrefix,
+      apiVersion1Prefix,
+      apiVersion2Prefix,
       basePath: BASEPATH,
       deployment:
         DEPLOYMENT_STR.toUpperCase() === Deployments.KUBEFLOW
@@ -201,8 +217,10 @@ export interface MinioConfigs {
 }
 export interface AWSConfigs {
   endPoint: string;
+  region: string;
   accessKey: string;
   secretKey: string;
+  useSSL: boolean;
 }
 export interface HttpConfigs {
   baseUrl: string;
@@ -241,7 +259,8 @@ export interface ServerConfigs {
   basePath: string;
   port: string | number;
   staticDir: string;
-  apiVersionPrefix: string;
+  apiVersion1Prefix: string;
+  apiVersion2Prefix: string;
   deployment: Deployments;
   hideSideNav: boolean;
 }
@@ -261,6 +280,10 @@ export interface UIConfigs {
     http: HttpConfigs;
     proxy: ArtifactsProxyConfig;
     streamLogsFromServerApi: boolean;
+    allowedDomain: string;
+  };
+  pod: {
+    logContainerName: string;
   };
   argo: ArgoConfigs;
   metadata: MetadataConfigs;

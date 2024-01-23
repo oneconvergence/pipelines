@@ -18,7 +18,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-from pytorch_lightning.metrics import Accuracy
+from torchmetrics import Accuracy
 from torch import nn
 from torchvision import models
 
@@ -46,6 +46,7 @@ class CIFAR10Classifier(pl.LightningModule):  #pylint: disable=too-many-ancestor
 
         self.preds = []
         self.target = []
+        self.example_input_array = torch.rand((1, 3, 64, 64))
 
     def forward(self, x_var):
         """Forward function."""
@@ -205,7 +206,3 @@ class CIFAR10Classifier(pl.LightningModule):  #pylint: disable=too-many-ancestor
         """
         self.show_activations(self.reference_image)
 
-        # Logging graph
-        if self.current_epoch == 0:
-            sample_img = torch.rand((1, 3, 64, 64))
-            self.logger.experiment.add_graph(CIFAR10Classifier(), sample_img)

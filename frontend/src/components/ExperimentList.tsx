@@ -18,27 +18,27 @@ import CustomTable, { Column, CustomRendererProps, Row, ExpandState } from './Cu
 import * as React from 'react';
 import { Link, RouteComponentProps } from 'react-router-dom';
 import {
-  ApiListExperimentsResponse,
-  ApiExperiment,
-  ApiExperimentStorageState,
-} from '../apis/experiment';
-import { errorToMessage } from '../lib/Utils';
+  V2beta1ListExperimentsResponse,
+  V2beta1Experiment,
+  V2beta1ExperimentStorageState,
+} from 'src/apisv2beta1/experiment';
+import { errorToMessage } from 'src/lib/Utils';
 import { RoutePage, RouteParams } from './Router';
-import { commonCss } from '../Css';
-import { Apis, ExperimentSortKeys, ListRequest } from '../lib/Apis';
-import { ApiRunStorageState } from 'src/apis/run';
-import RunList from '../pages/RunList';
-import { PredicateOp, ApiFilter } from '../apis/filter';
+import { commonCss } from 'src/Css';
+import { Apis, ExperimentSortKeys, ListRequest } from 'src/lib/Apis';
+import { V2beta1RunStorageState } from 'src/apisv2beta1/run';
+import { V2beta1Filter, V2beta1PredicateOperation } from 'src/apisv2beta1/filter';
+import RunList from 'src/pages/RunList';
 import produce from 'immer';
 import Tooltip from '@material-ui/core/Tooltip';
 
 export interface ExperimentListProps extends RouteComponentProps {
   namespace?: string;
-  storageState?: ApiExperimentStorageState;
+  storageState?: V2beta1ExperimentStorageState;
   onError: (message: string, error: Error) => void;
 }
 
-interface DisplayExperiment extends ApiExperiment {
+interface DisplayExperiment extends V2beta1Experiment {
   error?: string;
   expandState?: ExpandState;
 }
@@ -76,8 +76,8 @@ export class ExperimentList extends React.PureComponent<ExperimentListProps, Exp
       return {
         error: exp.error,
         expandState: exp.expandState,
-        id: exp.id!,
-        otherFields: [exp.name!, exp.description!],
+        id: exp.experiment_id!,
+        otherFields: [exp.display_name!, exp.description!],
       };
     });
 
@@ -93,7 +93,7 @@ export class ExperimentList extends React.PureComponent<ExperimentListProps, Exp
           toggleExpansion={this._toggleRowExpand.bind(this)}
           getExpandComponent={this._getExpandedExperimentComponent.bind(this)}
           filterLabel='Filter experiments'
-          emptyMessage='No experiments found. Click "Create experiment" to start.'
+          emptyMessage='No archived experiments found.'
         />
       </div>
     );
@@ -130,17 +130,17 @@ export class ExperimentList extends React.PureComponent<ExperimentListProps, Exp
         // Augment the request filter with the storage state predicate
         const filter = JSON.parse(
           decodeURIComponent(request.filter || '{"predicates": []}'),
-        ) as ApiFilter;
+        ) as V2beta1Filter;
         filter.predicates = (filter.predicates || []).concat([
           {
             key: 'storage_state',
             // Use EQUALS ARCHIVED or NOT EQUALS ARCHIVED to account for cases where the field
             // is missing, in which case it should be counted as available.
-            op:
-              this.props.storageState === ApiExperimentStorageState.ARCHIVED
-                ? PredicateOp.EQUALS
-                : PredicateOp.NOTEQUALS,
-            string_value: ApiExperimentStorageState.ARCHIVED.toString(),
+            operation:
+              this.props.storageState === V2beta1ExperimentStorageState.ARCHIVED
+                ? V2beta1PredicateOperation.EQUALS
+                : V2beta1PredicateOperation.NOTEQUALS,
+            string_value: V2beta1ExperimentStorageState.ARCHIVED.toString(),
           },
         ]);
         request.filter = encodeURIComponent(JSON.stringify(filter));
@@ -152,13 +152,12 @@ export class ExperimentList extends React.PureComponent<ExperimentListProps, Exp
     }
 
     try {
-      let response: ApiListExperimentsResponse;
-      response = await Apis.experimentServiceApi.listExperiment(
+      let response: V2beta1ListExperimentsResponse;
+      response = await Apis.experimentServiceApiV2.listExperiments(
         request.pageToken,
         request.pageSize,
         request.sortBy,
         request.filter,
-        this.props.namespace ? 'NAMESPACE' : undefined,
         this.props.namespace || undefined,
       );
       nextPageToken = response.next_page_token || '';
@@ -191,14 +190,14 @@ export class ExperimentList extends React.PureComponent<ExperimentListProps, Exp
     return (
       <RunList
         hideExperimentColumn={true}
-        experimentIdMask={experiment.id}
+        experimentIdMask={experiment.experiment_id}
         {...parentProps}
         disablePaging={false}
         noFilterBox={true}
         storageState={
-          this.props.storageState === ApiExperimentStorageState.ARCHIVED
-            ? ApiRunStorageState.ARCHIVED
-            : ApiRunStorageState.AVAILABLE
+          this.props.storageState === V2beta1ExperimentStorageState.ARCHIVED
+            ? V2beta1RunStorageState.ARCHIVED
+            : V2beta1RunStorageState.AVAILABLE
         }
         disableSorting={true}
         disableSelection={true}

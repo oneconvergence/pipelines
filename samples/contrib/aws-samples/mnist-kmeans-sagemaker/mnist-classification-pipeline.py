@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 
+import ast
+import json
+import random
 import kfp
 from kfp import components
 from kfp import dsl
@@ -12,13 +15,14 @@ sagemaker_process_op = components.load_component_from_file(
     "../../../../components/aws/sagemaker/process/component.yaml"
 )
 sagemaker_train_op = components.load_component_from_file(
-    "../../../../components/aws/sagemaker/train/component.yaml"
+    "../../../../components/aws/sagemaker/TrainingJob/component.yaml"
 )
-sagemaker_model_op = components.load_component_from_file(
-    "../../../../components/aws/sagemaker/model/component.yaml"
+sagemaker_Model_op = components.load_component_from_file("../../../../components/aws/sagemaker/Modelv2/component.yaml")
+sagemaker_EndpointConfig_op = components.load_component_from_file(
+    "../../../../components/aws/sagemaker/EndpointConfig/component.yaml"
 )
-sagemaker_deploy_op = components.load_component_from_file(
-    "../../../../components/aws/sagemaker/deploy/component.yaml"
+sagemaker_Endpoint_op = components.load_component_from_file(
+    "../../../../components/aws/sagemaker/Endpoint/component.yaml"
 )
 sagemaker_batch_transform_op = components.load_component_from_file(
     "../../../../components/aws/sagemaker/batch_transform/component.yaml"
@@ -55,6 +59,28 @@ def training_input(input_name, s3_uri):
     }
 
 
+def model_input(train_image, model_artifact_url):
+    return {
+        "containerHostname": "mnist-kmeans",
+        "image": train_image,
+        "mode": "SingleModel",
+        "modelDataURL": model_artifact_url,
+    }
+
+
+def get_production_variants(model_name):
+    return [
+    {
+        "initialInstanceCount": 1,
+        "initialVariantWeight": 1,
+        "instanceType": "ml.t2.medium",
+        "modelName": model_name,
+        "variantName": "mnist-kmeans-sample",
+        "volumeSizeInGB": 5,
+    }
+]
+
+
 @dsl.pipeline(
     name="MNIST Classification pipeline",
     description="MNIST Classification using KMEANS in SageMaker",
@@ -70,9 +96,6 @@ def mnist_classification(role_arn="", bucket_name=""):
         training_input("train", f"s3://{bucket_name}/mnist_kmeans_example/train_data"),
         training_input("test", f"s3://{bucket_name}/mnist_kmeans_example/test_data"),
     ]
-    train_channels = [
-        training_input("train", f"s3://{bucket_name}/mnist_kmeans_example/train_data")
-    ]
     train_output_location = f"s3://{bucket_name}/mnist_kmeans_example/output"
 
     process = sagemaker_process_op(
@@ -87,7 +110,7 @@ def mnist_classification(role_arn="", bucket_name=""):
         input_config=[
             processing_input(
                 "mnist_tar",
-                "s3://sagemaker-sample-data-us-east-1/algorithms/kmeans/mnist/mnist.pkl.gz",
+                "s3://sagemaker-sample-files/datasets/image/MNIST/mnist.pkl.gz",
                 "/opt/ml/processing/input",
             ),
             processing_input(
@@ -136,31 +159,76 @@ def mnist_classification(role_arn="", bucket_name=""):
         role=role_arn,
     ).after(process)
 
+    trainingJobName = "sample-mnist-v2-trainingjob" + str(random.randint(0, 999999))
+
     training = sagemaker_train_op(
         region=region,
-        image=train_image,
-        hyperparameters=hpo.outputs["best_hyperparameters"],
-        channels=train_channels,
-        instance_type=instance_type,
-        model_artifact_path=train_output_location,
-        role=role_arn,
+        algorithm_specification={
+            "trainingImage": train_image,
+            "trainingInputMode": "File",
+        },
+        hyper_parameters=hpo.outputs["best_hyperparameters"],
+        input_data_config=[
+            {
+                "channelName": "train",
+                "dataSource": {
+                    "s3DataSource": {
+                        "s3DataType": "S3Prefix",
+                        "s3URI": f"s3://{bucket_name}/mnist_kmeans_example/train_data",
+                        "s3DataDistributionType": "FullyReplicated",
+                    },
+                },
+                "compressionType": "None",
+                "RecordWrapperType": "None",
+                "InputMode": "File",
+            }
+        ],
+        output_data_config={"s3OutputPath": f"s3://{bucket_name}"},
+        resource_config={
+            "instanceCount": 1,
+            "instanceType": "ml.m4.xlarge",
+            "volumeSizeInGB": 5,
+        },
+        role_arn=role_arn,
+        training_job_name=trainingJobName,
+        stopping_condition={"maxRuntimeInSeconds": 3600},
     )
 
-    create_model = sagemaker_model_op(
+    def get_s3_model_artifact(model_artifacts) -> str:
+        import ast
+
+        model_artifacts = ast.literal_eval(model_artifacts)
+        return model_artifacts["s3ModelArtifacts"]
+
+    get_s3_model_artifact_op = kfp.components.create_component_from_func(
+        get_s3_model_artifact, output_component_file="get_s3_model_artifact.yaml"
+    )
+    model_artifact_url = get_s3_model_artifact_op(
+        training.outputs["model_artifacts"]
+    ).output
+
+    Model = sagemaker_Model_op(
         region=region,
-        model_name=training.outputs["job_name"],
-        image=training.outputs["training_image"],
-        model_artifact_url=training.outputs["model_artifact_url"],
-        role=role_arn,
+        execution_role_arn=role_arn,
+        primary_container=model_input(train_image, model_artifact_url),
+    )
+    model_name =  Model.outputs["sagemaker_resource_name"]
+    EndpointConfig = sagemaker_EndpointConfig_op(
+        region=region,
+        production_variants=get_production_variants(model_name),
     )
 
-    sagemaker_deploy_op(
-        region=region, model_name_1=create_model.output,
+    endpoint_config_name = EndpointConfig.outputs["sagemaker_resource_name"]
+
+    Endpoint = sagemaker_Endpoint_op(
+        region=region,
+        endpoint_config_name=endpoint_config_name,
     )
+
 
     sagemaker_batch_transform_op(
         region=region,
-        model_name=create_model.output,
+        model_name=model_name,
         instance_type=instance_type,
         batch_strategy="MultiRecord",
         input_location=f"s3://{bucket_name}/mnist_kmeans_example/input",
@@ -171,4 +239,5 @@ def mnist_classification(role_arn="", bucket_name=""):
 
 
 if __name__ == "__main__":
-    kfp.compiler.Compiler().compile(mnist_classification, __file__ + ".zip")
+    kfp.compiler.Compiler().compile(mnist_classification, __file__ + ".tar.gz")
+    print("#####################Pipeline compiled########################")

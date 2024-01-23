@@ -15,37 +15,36 @@
  */
 
 import * as React from 'react';
-import Buttons, { ButtonKeys } from '../lib/Buttons';
+import Buttons, { ButtonKeys } from 'src/lib/Buttons';
 import CustomTable, {
   Column,
   Row,
   ExpandState,
   CustomRendererProps,
-} from '../components/CustomTable';
+} from 'src/components/CustomTable';
 import RunList from './RunList';
 import produce from 'immer';
-import { ApiFilter, PredicateOp } from '../apis/filter';
 import {
-  ApiListExperimentsResponse,
-  ApiExperiment,
-  ApiExperimentStorageState,
-} from '../apis/experiment';
-import { ApiRun, ApiRunStorageState } from '../apis/run';
-import { Apis, ExperimentSortKeys, ListRequest, RunSortKeys } from '../lib/Apis';
+  V2beta1ListExperimentsResponse,
+  V2beta1Experiment,
+  V2beta1ExperimentStorageState,
+} from 'src/apisv2beta1/experiment';
+import { V2beta1Filter, V2beta1PredicateOperation } from 'src/apisv2beta1/filter';
+import { V2beta1Run, V2beta1RunStorageState } from 'src/apisv2beta1/run';
+import { Apis, ExperimentSortKeys, ListRequest, RunSortKeys } from 'src/lib/Apis';
 import { Link } from 'react-router-dom';
-import { NodePhase } from '../lib/StatusUtils';
 import { Page, PageProps } from './Page';
-import { RoutePage, RouteParams } from '../components/Router';
-import { ToolbarProps } from '../components/Toolbar';
+import { RoutePage, RouteParams } from 'src/components/Router';
+import { ToolbarProps } from 'src/components/Toolbar';
 import { classes } from 'typestyle';
-import { commonCss, padding } from '../Css';
-import { logger } from '../lib/Utils';
-import { statusToIcon } from './Status';
+import { commonCss, padding } from 'src/Css';
+import { logger } from 'src/lib/Utils';
+import { statusToIcon } from './StatusV2';
 import Tooltip from '@material-ui/core/Tooltip';
 import { NamespaceContext } from 'src/lib/KubeflowClient';
 
-interface DisplayExperiment extends ApiExperiment {
-  last5Runs?: ApiRun[];
+interface DisplayExperiment extends V2beta1Experiment {
+  last5Runs?: V2beta1Run[];
   error?: string;
   expandState?: ExpandState;
 }
@@ -112,9 +111,9 @@ export class ExperimentList extends Page<{ namespace?: string }, ExperimentListS
       return {
         error: exp.error,
         expandState: exp.expandState,
-        id: exp.id!,
+        id: exp.experiment_id!,
         otherFields: [
-          exp.name!,
+          exp.display_name!,
           exp.description!,
           exp.expandState === ExpandState.EXPANDED ? [] : exp.last5Runs,
         ],
@@ -162,14 +161,14 @@ export class ExperimentList extends Page<{ namespace?: string }, ExperimentListS
     );
   };
 
-  public _last5RunsCustomRenderer: React.FC<CustomRendererProps<ApiRun[]>> = (
-    props: CustomRendererProps<ApiRun[]>,
+  public _last5RunsCustomRenderer: React.FC<CustomRendererProps<V2beta1Run[]>> = (
+    props: CustomRendererProps<V2beta1Run[]>,
   ) => {
     return (
       <div className={commonCss.flex}>
         {(props.value || []).map((run, i) => (
           <span key={i} style={{ margin: '0 1px' }}>
-            {statusToIcon((run.status as NodePhase) || NodePhase.UNKNOWN, run.created_at)}
+            {statusToIcon(run.state, run.created_at)}
           </span>
         ))}
       </div>
@@ -178,7 +177,7 @@ export class ExperimentList extends Page<{ namespace?: string }, ExperimentListS
 
   private async _reload(request: ListRequest): Promise<string> {
     // Fetch the list of experiments
-    let response: ApiListExperimentsResponse;
+    let response: V2beta1ListExperimentsResponse;
     let displayExperiments: DisplayExperiment[];
     try {
       // This ExperimentList page is used as the "All experiments" tab
@@ -186,21 +185,20 @@ export class ExperimentList extends Page<{ namespace?: string }, ExperimentListS
       // Archived experiments are listed in "Archive" page.
       const filter = JSON.parse(
         decodeURIComponent(request.filter || '{"predicates": []}'),
-      ) as ApiFilter;
+      ) as V2beta1Filter;
       filter.predicates = (filter.predicates || []).concat([
         {
           key: 'storage_state',
-          op: PredicateOp.NOTEQUALS,
-          string_value: ApiExperimentStorageState.ARCHIVED.toString(),
+          operation: V2beta1PredicateOperation.NOTEQUALS,
+          string_value: V2beta1ExperimentStorageState.ARCHIVED.toString(),
         },
       ]);
       request.filter = encodeURIComponent(JSON.stringify(filter));
-      response = await Apis.experimentServiceApi.listExperiment(
+      response = await Apis.experimentServiceApiV2.listExperiments(
         request.pageToken,
         request.pageSize,
         request.sortBy,
         request.filter,
-        this.props.namespace ? 'NAMESPACE' : undefined,
         this.props.namespace || undefined,
       );
       displayExperiments = response.experiments || [];
@@ -216,29 +214,29 @@ export class ExperimentList extends Page<{ namespace?: string }, ExperimentListS
       displayExperiments.map(async experiment => {
         // TODO: should we aggregate errors here? What if they fail for different reasons?
         try {
-          const listRunsResponse = await Apis.runServiceApi.listRuns(
+          const listRunsResponse = await Apis.runServiceApiV2.listRuns(
+            undefined,
+            experiment.experiment_id,
             undefined /* pageToken */,
             5 /* pageSize */,
             RunSortKeys.CREATED_AT + ' desc',
-            'EXPERIMENT',
-            experiment.id,
             encodeURIComponent(
               JSON.stringify({
                 predicates: [
                   {
                     key: 'storage_state',
-                    op: PredicateOp.NOTEQUALS,
-                    string_value: ApiRunStorageState.ARCHIVED.toString(),
+                    operation: V2beta1PredicateOperation.NOTEQUALS,
+                    string_value: V2beta1RunStorageState.ARCHIVED.toString(),
                   },
                 ],
-              } as ApiFilter),
+              } as V2beta1Filter),
             ),
           );
           experiment.last5Runs = listRunsResponse.runs || [];
         } catch (err) {
           experiment.error = 'Failed to load the last 5 runs of this experiment';
           logger.error(
-            `Error: failed to retrieve run statuses for experiment: ${experiment.name}.`,
+            `Error: failed to retrieve run statuses for experiment: ${experiment.display_name}.`,
             err,
           );
         }
@@ -274,13 +272,13 @@ export class ExperimentList extends Page<{ namespace?: string }, ExperimentListS
     return (
       <RunList
         hideExperimentColumn={true}
-        experimentIdMask={experiment.id}
+        experimentIdMask={experiment.experiment_id}
         onError={() => null}
         {...this.props}
         disablePaging={false}
         selectedIds={this.state.selectedIds}
         noFilterBox={true}
-        storageState={ApiRunStorageState.AVAILABLE}
+        storageState={V2beta1RunStorageState.AVAILABLE}
         onSelectionChange={this._selectionChanged.bind(this)}
         disableSorting={true}
       />

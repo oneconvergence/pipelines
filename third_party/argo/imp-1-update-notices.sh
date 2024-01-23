@@ -38,7 +38,7 @@ which go-licenses >/dev/null || (echo "go-licenses not found in PATH" && exit 1)
 # Clean up generated files
 rm -rf "${DIR}/NOTICES"
 
-cd "$WORK_DIR"
+cd "${WORK_DIR}"
 gh repo clone argoproj/argo-workflows
 cd argo-workflows
 REPO="${WORK_DIR}/argo-workflows"
@@ -51,10 +51,10 @@ mkdir -p "${DIR}/NOTICES/workflow-controller"
 mkdir -p "${DIR}/NOTICES/argoexec"
 echo "Temporary dir:"
 echo "${WORK_DIR}"
-cp "${DIR}/go-licenses.yaml" .
-go-licenses csv dist/workflow-controller > licenses-workflow-controller.csv
+
+go-licenses csv ./cmd/workflow-controller > licenses-workflow-controller.csv
 cp licenses-workflow-controller.csv "${DIR}/licenses-workflow-controller.csv"
-go-licenses csv dist/argoexec > licenses-argoexec.csv
+go-licenses csv ./cmd/argoexec > licenses-argoexec.csv
 cp licenses-argoexec.csv "${DIR}/licenses-argoexec.csv"
-go-licenses save licenses-workflow-controller.csv --save_path "${DIR}/NOTICES/workflow-controller" --force
-go-licenses save licenses-argoexec.csv --save_path "${DIR}/NOTICES/argoexec" --force
+go-licenses save ./cmd/workflow-controller --save_path "${DIR}/NOTICES/workflow-controller" --force
+go-licenses save ./cmd/argoexec --save_path "${DIR}/NOTICES/argoexec" --force

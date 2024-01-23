@@ -1,8 +1,7 @@
 approvers:
-  - Bobgy
   - chensun
-  - IronPan
-  - capri-xiyue
+  - gkcalat
 reviewers:
-  - Bobgy
-  - capri-xiyue
+  - chensun
+  - gkcalat
+  - Tomcli

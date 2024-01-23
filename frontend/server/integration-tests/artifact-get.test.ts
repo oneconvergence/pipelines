@@ -105,7 +105,9 @@ describe('/artifacts', () => {
           expect(mockedMinioClient).toBeCalledWith({
             accessKey: 'aws123',
             endPoint: 's3.amazonaws.com',
+            region: 'us-east-1',
             secretKey: 'awsSecret123',
+            useSSL: true,
           });
           done(err);
         });
@@ -126,7 +128,33 @@ describe('/artifacts', () => {
           expect(mockedMinioClient).toBeCalledWith({
             accessKey: 'aws123',
             endPoint: 's3.amazonaws.com',
+            region: 'us-east-1',
             secretKey: 'awsSecret123',
+            useSSL: true,
+          });
+          done(err);
+        });
+    });
+
+    it('responds with a s3 artifact from bucket in non-default region if source=s3', done => {
+      const mockedMinioClient: jest.Mock = jest.spyOn(minioHelper, 'createMinioClient') as any;
+      const configs = loadConfigs(argv, {
+        AWS_ACCESS_KEY_ID: 'aws123',
+        AWS_SECRET_ACCESS_KEY: 'awsSecret123',
+        AWS_REGION: 'eu-central-1',
+      });
+      app = new UIServer(configs);
+
+      const request = requests(app.start());
+      request
+        .get('/artifacts/get?source=s3&bucket=ml-pipeline&key=hello%2Fworld.txt')
+        .expect(200, artifactContent, err => {
+          expect(mockedMinioClient).toBeCalledWith({
+            accessKey: 'aws123',
+            endPoint: 's3.amazonaws.com',
+            region: 'eu-central-1',
+            secretKey: 'awsSecret123',
+            useSSL: true,
           });
           done(err);
         });
@@ -413,11 +441,7 @@ describe('/artifacts', () => {
       const request = requests(app.start());
       request
         .get(`/artifacts/get?source=volume&bucket=notexist&key=content`)
-        .expect(
-          404,
-          'Failed to open volume://notexist/content, Cannot find file "volume://notexist/content" in pod "ml-pipeline-ui": volume "notexist" not configured',
-          done,
-        );
+        .expect(404, 'Failed to open volume.', done);
     });
 
     it('responds error with a not exist volume mount path if source=volume', done => {
@@ -460,11 +484,7 @@ describe('/artifacts', () => {
       const request = requests(app.start());
       request
         .get(`/artifacts/get?source=volume&bucket=artifact&key=notexist/config`)
-        .expect(
-          404,
-          'Failed to open volume://artifact/notexist/config, Cannot find file "volume://artifact/notexist/config" in pod "ml-pipeline-ui": volume "artifact" not mounted or volume "artifact" with subPath (which is prefix of notexist/config) not mounted',
-          done,
-        );
+        .expect(404, 'Failed to open volume.', done);
     });
 
     it('responds error with a not exist volume mount artifact if source=volume', done => {
@@ -504,11 +524,7 @@ describe('/artifacts', () => {
       const request = requests(app.start());
       request
         .get(`/artifacts/get?source=volume&bucket=artifact&key=subartifact/notxist.csv`)
-        .expect(
-          500,
-          "Failed to open volume://artifact/subartifact/notxist.csv: Error: ENOENT: no such file or directory, stat '/foo/bar/notxist.csv'",
-          done,
-        );
+        .expect(500, 'Failed to open volume.', done);
     });
   });
 

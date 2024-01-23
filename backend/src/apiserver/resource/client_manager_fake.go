@@ -23,12 +23,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 )
 
-const (
-	DefaultFakeUUID    = "123e4567-e89b-12d3-a456-426655440000"
-	FakeUUIDOne        = "123e4567-e89b-12d3-a456-426655440001"
-	NonDefaultFakeUUID = "123e4567-e89b-12d3-a456-426655441000"
-)
-
 type FakeClientManager struct {
 	db                            *storage.DB
 	experimentStore               storage.ExperimentStoreInterface
@@ -40,7 +34,7 @@ type FakeClientManager struct {
 	dBStatusStore                 storage.DBStatusStoreInterface
 	defaultExperimentStore        storage.DefaultExperimentStoreInterface
 	objectStore                   storage.ObjectStoreInterface
-	ArgoClientFake                *client.FakeArgoClient
+	ExecClientFake                *client.FakeExecClient
 	swfClientFake                 *client.FakeSwfClient
 	k8sCoreClientFake             *client.FakeKuberneteCoreClient
 	SubjectAccessReviewClientFake client.SubjectAccessReviewInterface
@@ -52,18 +46,18 @@ type FakeClientManager struct {
 }
 
 func NewFakeClientManager(time util.TimeInterface, uuid util.UUIDGeneratorInterface) (
-	*FakeClientManager, error) {
-
+	*FakeClientManager, error,
+) {
 	if time == nil {
-		glog.Fatalf("The time parameter must not be null.") // Must never happen
+		glog.Fatalf("The time parameter must not be null") // Must never happen
 	}
 
 	if uuid == nil {
-		glog.Fatalf("The UUID generator must not be null.") // Must never happen
+		glog.Fatalf("The UUID generator must not be null") // Must never happen
 	}
 
 	// Initialize GORM
-	db, err := storage.NewFakeDb()
+	db, err := storage.NewFakeDB()
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +70,7 @@ func NewFakeClientManager(time util.TimeInterface, uuid util.UUIDGeneratorInterf
 		jobStore:                      storage.NewJobStore(db, time),
 		runStore:                      storage.NewRunStore(db, time),
 		taskStore:                     storage.NewTaskStore(db, time, uuid),
-		ArgoClientFake:                client.NewFakeArgoClient(),
+		ExecClientFake:                client.NewFakeExecClient(),
 		resourceReferenceStore:        storage.NewResourceReferenceStore(db),
 		dBStatusStore:                 storage.NewDBStatusStore(db),
 		defaultExperimentStore:        storage.NewDefaultExperimentStore(db),
@@ -93,10 +87,24 @@ func NewFakeClientManager(time util.TimeInterface, uuid util.UUIDGeneratorInterf
 }
 
 func NewFakeClientManagerOrFatal(time util.TimeInterface) *FakeClientManager {
-	uuid := util.NewFakeUUIDGeneratorOrFatal(DefaultFakeUUID, nil)
+	uuid := util.NewFakeUUIDGeneratorOrFatal("123e4567-e89b-12d3-a456-426655440000", nil)
 	fakeStore, err := NewFakeClientManager(time, uuid)
 	if err != nil {
-		glog.Fatalf("The fake store doesn't create successfully. Fail fast.")
+		glog.Fatalf("The fake store doesn't create successfully. Fail fast")
+	}
+	return fakeStore
+}
+
+// NewFakeClientManagerOrFatalV2 improves over v1 by using the real UUID implementation,
+// this simplifies test code, because there won't be duplicate UUID each call.
+// On the contrary, test code should not verify UUID is a specific value, but it
+// should only verify UUID equality across API calls.
+func NewFakeClientManagerOrFatalV2() *FakeClientManager {
+	uuid := util.NewUUIDGenerator()
+	time := util.NewFakeTimeForEpoch()
+	fakeStore, err := NewFakeClientManager(time, uuid)
+	if err != nil {
+		glog.Fatalf("The fake store doesn't create successfully. Fail fast")
 	}
 	return fakeStore
 }
@@ -129,8 +137,8 @@ func (f *FakeClientManager) DB() *storage.DB {
 	return f.db
 }
 
-func (f *FakeClientManager) ArgoClient() client.ArgoClientInterface {
-	return f.ArgoClientFake
+func (f *FakeClientManager) ExecClient() util.ExecutionClient {
+	return f.ExecClientFake
 }
 
 func (f *FakeClientManager) JobStore() storage.JobStoreInterface {
@@ -181,7 +189,7 @@ func (f *FakeClientManager) Close() error {
 	return f.db.Close()
 }
 
-// Update the uuid used in this fake client manager
+// Update the uuid used in this fake client manager.
 func (f *FakeClientManager) UpdateUUID(uuid util.UUIDGeneratorInterface) {
 	f.uuid = uuid
 	f.experimentStore = storage.NewExperimentStore(f.db, f.time, uuid)

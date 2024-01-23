@@ -19,7 +19,6 @@ import (
 	"time"
 
 	workflowregister "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow"
-	workflowinformers "github.com/argoproj/argo-workflows/v3/pkg/client/informers/externalversions"
 	"github.com/kubeflow/pipelines/backend/src/agent/persistence/client"
 	"github.com/kubeflow/pipelines/backend/src/agent/persistence/worker"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -45,25 +44,24 @@ type PersistenceAgent struct {
 // NewPersistenceAgent returns a new persistence agent.
 func NewPersistenceAgent(
 	swfInformerFactory swfinformers.SharedInformerFactory,
-	workflowInformerFactory workflowinformers.SharedInformerFactory,
+	execInformer util.ExecutionInformer,
 	pipelineClient *client.PipelineClient,
 	time util.TimeInterface) *PersistenceAgent {
 	// obtain references to shared informers
 	swfInformer := swfInformerFactory.Scheduledworkflow().V1beta1().ScheduledWorkflows()
-	workflowInformer := workflowInformerFactory.Argoproj().V1alpha1().Workflows()
 
 	// Add controller types to the default Kubernetes Scheme so Events can be
 	// logged for controller types.
 	swfScheme.AddToScheme(scheme.Scheme)
 
 	swfClient := client.NewScheduledWorkflowClient(swfInformer)
-	workflowClient := client.NewWorkflowClient(workflowInformer)
+	workflowClient := client.NewWorkflowClient(execInformer)
 
 	swfWorker := worker.NewPersistenceWorker(time, swfregister.Kind, swfInformer.Informer(), true,
 		worker.NewScheduledWorkflowSaver(swfClient, pipelineClient))
 
 	workflowWorker := worker.NewPersistenceWorker(time, workflowregister.WorkflowKind,
-		workflowInformer.Informer(), true,
+		execInformer, true,
 		worker.NewWorkflowSaver(workflowClient, pipelineClient, ttlSecondsAfterWorkflowFinish))
 
 	agent := &PersistenceAgent{

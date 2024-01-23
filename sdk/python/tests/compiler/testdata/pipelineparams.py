@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfp.dsl as dsl
-from kubernetes import client as k8s_client
+import kfp.deprecated.dsl as dsl
 from kubernetes.client.models import V1EnvVar
 
 
-@dsl.pipeline(name='PipelineParams', description='A pipeline with multiple pipeline params.')
+@dsl.pipeline(
+    name='PipelineParams',
+    description='A pipeline with multiple pipeline params.')
 def pipelineparams_pipeline(tag: str = 'latest', sleep_ms: int = 10):
 
     echo = dsl.Sidecar(
@@ -30,7 +31,9 @@ def pipelineparams_pipeline(tag: str = 'latest', sleep_ms: int = 10):
         name='download',
         image='busybox:%s' % tag,
         command=['sh', '-c'],
-        arguments=['sleep %s; wget localhost:5678 -O /tmp/results.txt' % sleep_ms],
+        arguments=[
+            'sleep %s; wget localhost:5678 -O /tmp/results.txt' % sleep_ms
+        ],
         sidecars=[echo],
         file_outputs={'downloaded': '/tmp/results.txt'})
 
@@ -39,5 +42,6 @@ def pipelineparams_pipeline(tag: str = 'latest', sleep_ms: int = 10):
         image='library/bash',
         command=['sh', '-c'],
         arguments=['echo $MSG %s' % op1.output])
-    
-    op2.container.add_env_variable(V1EnvVar(name='MSG', value='pipelineParams: '))
+
+    op2.container.add_env_variable(
+        V1EnvVar(name='MSG', value='pipelineParams: '))

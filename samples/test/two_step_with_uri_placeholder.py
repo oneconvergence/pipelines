@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Two step v2-compatible pipeline with URI placeholders."""
-import kfp
 from kfp import components, dsl
 
 write_to_gcs_op = components.load_component_from_text("""
@@ -53,6 +52,5 @@ implementation:
 
 @dsl.pipeline(name='two-step-with-uri-placeholders')
 def two_step_with_uri_placeholder(msg: str = 'Hello world!'):
-  write_to_gcs = write_to_gcs_op(msg=msg)
-  read_from_gcs = read_from_gcs_op(
-      artifact=write_to_gcs.outputs['artifact'])
+    write_to_gcs = write_to_gcs_op(msg=msg)
+    read_from_gcs = read_from_gcs_op(artifact=write_to_gcs.outputs['artifact'])

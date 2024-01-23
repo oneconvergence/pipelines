@@ -1,304 +1,584 @@
+// Copyright 2018 The Kubeflow Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
 	"context"
-	"google.golang.org/protobuf/testing/protocmp"
 	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
-	kfpauth "github.com/kubeflow/pipelines/backend/src/apiserver/auth"
+	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	authorizationv1 "k8s.io/api/authorization/v1"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/structpb"
+	"sigs.k8s.io/yaml"
 )
 
 var (
-	commonApiJob = &api.Job{
+	commonApiJob = &apiv1beta1.Job{
 		Name:           "job1",
 		Enabled:        true,
 		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
+		Trigger: &apiv1beta1.Trigger{
+			Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
 				StartTime: &timestamp.Timestamp{Seconds: 1},
 				Cron:      "1 * * * *",
-			}}},
-		PipelineSpec: &api.PipelineSpec{
-			WorkflowManifest: testWorkflow.ToStringForStore(),
-			Parameters:       []*api.Parameter{{Name: "param1", Value: "world"}},
+			}},
 		},
-		ResourceReferences: []*api.ResourceReference{
+		PipelineSpec: &apiv1beta1.PipelineSpec{
+			WorkflowManifest: testWorkflow.ToStringForStore(),
+			Parameters:       []*apiv1beta1.Parameter{{Name: "param1", Value: "world"}},
+		},
+		ResourceReferences: []*apiv1beta1.ResourceReference{
 			{
-				Key:          &api.ResourceKey{Type: api.ResourceType_EXPERIMENT, Id: "123e4567-e89b-12d3-a456-426655440000"},
-				Relationship: api.Relationship_OWNER,
+				Key:          &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: "123e4567-e89b-12d3-a456-426655440000"},
+				Relationship: apiv1beta1.Relationship_OWNER,
 			},
 		},
 	}
 
-	commonExpectedJob = &api.Job{
+	commonExpectedJob = &apiv1beta1.Job{
 		Id:             "123e4567-e89b-12d3-a456-426655440000",
 		Name:           "job1",
 		ServiceAccount: "pipeline-runner",
 		Enabled:        true,
 		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
+		Trigger: &apiv1beta1.Trigger{
+			Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
 				StartTime: &timestamp.Timestamp{Seconds: 1},
 				Cron:      "1 * * * *",
-			}}},
+			}},
+		},
 		CreatedAt: &timestamp.Timestamp{Seconds: 2},
 		UpdatedAt: &timestamp.Timestamp{Seconds: 2},
-		Status:    "NO_STATUS",
-		PipelineSpec: &api.PipelineSpec{
+		Status:    "STATUS_UNSPECIFIED",
+		PipelineSpec: &apiv1beta1.PipelineSpec{
 			WorkflowManifest: testWorkflow.ToStringForStore(),
-			Parameters:       []*api.Parameter{{Name: "param1", Value: "world"}},
+			Parameters:       []*apiv1beta1.Parameter{{Name: "param1", Value: "world"}},
 		},
-		ResourceReferences: []*api.ResourceReference{
+		ResourceReferences: []*apiv1beta1.ResourceReference{
 			{
-				Key:  &api.ResourceKey{Type: api.ResourceType_EXPERIMENT, Id: "123e4567-e89b-12d3-a456-426655440000"},
-				Name: "exp1", Relationship: api.Relationship_OWNER,
+				Key:          &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: "123e4567-e89b-12d3-a456-426655440000"},
+				Relationship: apiv1beta1.Relationship_OWNER,
 			},
 		},
 	}
+
+	commonApiRecurringRun = &apiv2beta1.RecurringRun{
+		DisplayName:    "job1",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: &structpb.Struct{}},
+		ExperimentId:   "123e4567-e89b-12d3-a456-426655440000",
+	}
 )
 
-func TestValidateApiJob(t *testing.T) {
-	clients, manager, _ := initWithExperiment(t)
+func TestCreateJob_WrongInput(t *testing.T) {
+	clients, manager, experiment, _ := initWithExperimentAndPipelineVersion(t)
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: commonApiJob})
-	assert.Nil(t, err)
-}
-
-func TestValidateApiJob_WithPipelineVersion(t *testing.T) {
-	clients, manager, _ := initWithExperimentAndPipelineVersion(t)
-	defer clients.Close()
-	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
-		Name:           "job1",
-		Enabled:        true,
-		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
-				StartTime: &timestamp.Timestamp{Seconds: 1},
-				Cron:      "1 * * * *",
-			}}},
-		ResourceReferences: validReferencesOfExperimentAndPipelineVersion,
+	tests := []struct {
+		name   string
+		arg    *apiv1beta1.Job
+		errMsg string
+	}{
+		{
+			"invalid pipeline version reference",
+			&apiv1beta1.Job{
+				Name:           "job1",
+				Enabled:        true,
+				MaxConcurrency: 1,
+				Trigger: &apiv1beta1.Trigger{
+					Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+						StartTime: &timestamp.Timestamp{Seconds: 1},
+						Cron:      "1 * * * *",
+					}}},
+				ResourceReferences: []*api.ResourceReference{
+					{
+						Key: &apiv1beta1.ResourceKey{
+							Type: apiv1beta1.ResourceType_EXPERIMENT,
+							Id:   DefaultFakeUUID,
+						},
+						Relationship: apiv1beta1.Relationship_OWNER,
+					},
+					{
+						Key:          &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_PIPELINE_VERSION, Id: invalidPipelineVersionId},
+						Relationship: apiv1beta1.Relationship_CREATOR,
+					},
+				},
+			},
+			"ResourceNotFoundError: PipelineVersion not_exist_pipeline_version not found",
+		},
+		{
+			"missing pipeline spec",
+			&apiv1beta1.Job{
+				Name:           "job1",
+				Enabled:        true,
+				MaxConcurrency: 1,
+				Trigger: &apiv1beta1.Trigger{
+					Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+						StartTime: &timestamp.Timestamp{Seconds: 1},
+						Cron:      "1 * * * *",
+					}}},
+				ResourceReferences: validReference,
+			},
+			"Failed to fetch a template with an empty pipeline spec manifest",
+		},
+		{
+			"invalid pipeline spec",
+			&apiv1beta1.Job{
+				Name:           "job1",
+				Enabled:        true,
+				MaxConcurrency: 1,
+				Trigger: &apiv1beta1.Trigger{
+					Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+						StartTime: &timestamp.Timestamp{Seconds: 1},
+						Cron:      "1 * * * *",
+					}}},
+				PipelineSpec: &apiv1beta1.PipelineSpec{
+					PipelineId: "not_exist_pipeline",
+					Parameters: []*apiv1beta1.Parameter{{Name: "param2", Value: "world"}},
+				},
+				ResourceReferences: []*apiv1beta1.ResourceReference{
+					{Key: &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: experiment.UUID}, Relationship: apiv1beta1.Relationship_OWNER},
+				},
+			},
+			"Failed to get the latest pipeline version as pipeline was not found: ResourceNotFoundError: Pipeline not_exist_pipeline not found",
+		},
+		{
+			"invalid cron",
+			&apiv1beta1.Job{
+				Name:           "job1",
+				Enabled:        true,
+				MaxConcurrency: 1,
+				Trigger: &apiv1beta1.Trigger{
+					Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+						StartTime: &timestamp.Timestamp{Seconds: 1},
+						Cron:      "1 * * ",
+					}}},
+				PipelineSpec: &apiv1beta1.PipelineSpec{
+					WorkflowManifest: testWorkflow.ToStringForStore(),
+					Parameters:       []*apiv1beta1.Parameter{{Name: "param1", Value: "world"}},
+				},
+				ResourceReferences: []*apiv1beta1.ResourceReference{
+					{Key: &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: experiment.UUID}, Relationship: apiv1beta1.Relationship_OWNER},
+				},
+			},
+			"Schedule cron is not a supported format(https://godoc.org/github.com/robfig/cron). Error: Expected 5 to 6 fields, found 3: 1 * * ",
+		},
+		{
+			"max concur out of range",
+			&apiv1beta1.Job{
+				Name:           "job1",
+				Enabled:        true,
+				MaxConcurrency: 0,
+				Trigger: &apiv1beta1.Trigger{
+					Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+						StartTime: &timestamp.Timestamp{Seconds: 1},
+						Cron:      "1 * * * *",
+					}}},
+				PipelineSpec: &apiv1beta1.PipelineSpec{
+					WorkflowManifest: testWorkflow.ToStringForStore(),
+					Parameters:       []*apiv1beta1.Parameter{{Name: "param1", Value: "world"}},
+				},
+				ResourceReferences: []*apiv1beta1.ResourceReference{
+					{Key: &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: experiment.UUID}, Relationship: apiv1beta1.Relationship_OWNER},
+				},
+			},
+			"Max concurrency of a recurring run must be at leas 1 and at most 10. Received 0",
+		},
+		{
+			"negative interval seconds",
+			&apiv1beta1.Job{
+				Name:           "job1",
+				Enabled:        true,
+				MaxConcurrency: 5,
+				Trigger: &apiv1beta1.Trigger{
+					Trigger: &apiv1beta1.Trigger_PeriodicSchedule{PeriodicSchedule: &apiv1beta1.PeriodicSchedule{
+						IntervalSecond: -1,
+					}}},
+				PipelineSpec: &apiv1beta1.PipelineSpec{
+					WorkflowManifest: testWorkflow.ToStringForStore(),
+					Parameters:       []*apiv1beta1.Parameter{{Name: "param1", Value: "world"}},
+				},
+				ResourceReferences: []*apiv1beta1.ResourceReference{
+					{Key: &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: experiment.UUID}, Relationship: apiv1beta1.Relationship_OWNER},
+				},
+			},
+			"Found invalid period schedule interval -1. Set at interval to least 1 second",
+		},
 	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
-	assert.Nil(t, err)
+	for _, tt := range tests {
+		got, err := server.CreateJob(context.Background(), &apiv1beta1.CreateJobRequest{Job: tt.arg})
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), tt.errMsg)
+		assert.Nil(t, got)
+	}
 }
 
-func TestValidateApiJob_ValidateNoExperimentResourceReferenceSucceeds(t *testing.T) {
-	clients, manager, _ := initWithExperiment(t)
+func TestCreateJob_pipelineVersion(t *testing.T) {
+	clients, manager, exp, pipelineVersion := initWithExperimentAndPipelineVersion(t)
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
+	rr := []*apiv1beta1.ResourceReference{
+		{
+			Key: &apiv1beta1.ResourceKey{
+				Type: apiv1beta1.ResourceType_EXPERIMENT,
+				Id:   exp.UUID,
+			},
+			Relationship: apiv1beta1.Relationship_OWNER,
+		},
+		{
+			Key: &apiv1beta1.ResourceKey{
+				Type: apiv1beta1.ResourceType_PIPELINE_VERSION,
+				Id:   pipelineVersion.UUID,
+			},
+			Relationship: apiv1beta1.Relationship_CREATOR,
+		},
+	}
+	apiJob := &apiv1beta1.Job{
 		Name:           "job1",
 		Enabled:        true,
 		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
+		Trigger: &apiv1beta1.Trigger{
+			Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
 				StartTime: &timestamp.Timestamp{Seconds: 1},
 				Cron:      "1 * * * *",
 			}}},
-		PipelineSpec: &api.PipelineSpec{
+		ResourceReferences: rr,
+	}
+	job, err := server.CreateJob(nil, &apiv1beta1.CreateJobRequest{Job: apiJob})
+	assert.Nil(t, err)
+
+	expectedJob := &apiv1beta1.Job{
+		Id:             "123e4567-e89b-12d3-a456-426655440000",
+		Name:           "job1",
+		Enabled:        true,
+		MaxConcurrency: 1,
+		Trigger: &apiv1beta1.Trigger{
+			Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}}},
+		ResourceReferences: rr,
+		ServiceAccount:     "pipeline-runner",
+		Status:             "STATUS_UNSPECIFIED",
+		PipelineSpec: &apiv1beta1.PipelineSpec{
+			PipelineId:       "123e4567-e89b-12d3-a456-426655440000",
+			PipelineName:     "p1",
 			WorkflowManifest: testWorkflow.ToStringForStore(),
-			Parameters:       []*api.Parameter{{Name: "param1", Value: "world"}},
+		},
+	}
+	matched := 0
+	for _, resRef := range expectedJob.GetResourceReferences() {
+		for _, resRef2 := range job.GetResourceReferences() {
+			if resRef.Key.Type == resRef2.Key.Type && resRef.Key.Id == resRef2.Key.Id && resRef.Relationship == resRef2.Relationship {
+				matched++
+			}
+		}
+	}
+	assert.Equal(t, len(rr), matched)
+	expectedJob.ResourceReferences = job.GetResourceReferences()
+	expectedJob.CreatedAt = job.GetCreatedAt()
+	expectedJob.UpdatedAt = job.GetUpdatedAt()
+	assert.Equal(t, expectedJob, job)
+}
+
+func TestCreateJob_NoResRefs(t *testing.T) {
+	clients, manager, _, _ := initWithExperimentAndPipelineVersion(t)
+	defer clients.Close()
+	clients.UpdateUUID(util.NewFakeUUIDGeneratorOrFatal(DefaultFakeIdTwo, nil))
+	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
+	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+	apiJob := &apiv1beta1.Job{
+		Name:           "job1",
+		Enabled:        true,
+		MaxConcurrency: 1,
+		Trigger: &apiv1beta1.Trigger{
+			Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}}},
+		PipelineSpec: &apiv1beta1.PipelineSpec{
+			WorkflowManifest: testWorkflow.ToStringForStore(),
+			Parameters:       []*apiv1beta1.Parameter{{Name: "param1", Value: "world"}},
 		},
 		// This job has no ResourceReferences, no experiment
 	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
+	job, err := server.CreateJob(nil, &apiv1beta1.CreateJobRequest{Job: apiJob})
 	assert.Nil(t, err)
-}
-
-func TestValidateApiJob_WithInvalidPipelineVersionReference(t *testing.T) {
-	clients, manager, _ := initWithExperimentAndPipelineVersion(t)
-	defer clients.Close()
-	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
-		Name:           "job1",
-		Enabled:        true,
-		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
-				StartTime: &timestamp.Timestamp{Seconds: 1},
-				Cron:      "1 * * * *",
-			}}},
-		ResourceReferences: referencesOfExperimentAndInvalidPipelineVersion,
+	rr := []*apiv1beta1.ResourceReference{
+		{
+			Key: &apiv1beta1.ResourceKey{
+				Type: apiv1beta1.ResourceType_EXPERIMENT,
+				Id:   DefaultFakeIdTwo,
+			},
+			Relationship: apiv1beta1.Relationship_OWNER,
+		},
 	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
-	assert.Equal(t, codes.NotFound, err.(*util.UserError).ExternalStatusCode())
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "Get pipelineVersionId failed.")
-}
-
-func TestValidateApiJob_NoValidPipelineSpecOrPipelineVersion(t *testing.T) {
-	clients, manager, _ := initWithExperimentAndPipelineVersion(t)
-	defer clients.Close()
-	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
+	expectedJob := &apiv1beta1.Job{
+		Id:             DefaultFakeIdOne,
 		Name:           "job1",
 		Enabled:        true,
 		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
+		Trigger: &apiv1beta1.Trigger{
+			Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
 				StartTime: &timestamp.Timestamp{Seconds: 1},
 				Cron:      "1 * * * *",
 			}}},
-		ResourceReferences: validReference,
-	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "Please specify a pipeline by providing a (workflow manifest) or (pipeline id or/and pipeline version).")
-}
-
-func TestValidateApiJob_WorkflowManifestAndPipelineVersion(t *testing.T) {
-	clients, manager, _ := initWithExperimentAndPipelineVersion(t)
-	defer clients.Close()
-	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
-		Name:           "job1",
-		Enabled:        true,
-		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
-				StartTime: &timestamp.Timestamp{Seconds: 1},
-				Cron:      "1 * * * *",
-			}}},
-		PipelineSpec: &api.PipelineSpec{
+		ResourceReferences: rr,
+		ServiceAccount:     "pipeline-runner",
+		Status:             "STATUS_UNSPECIFIED",
+		PipelineSpec: &apiv1beta1.PipelineSpec{
 			WorkflowManifest: testWorkflow.ToStringForStore(),
-			Parameters:       []*api.Parameter{{Name: "param2", Value: "world"}},
-		},
-		ResourceReferences: validReferencesOfExperimentAndPipelineVersion,
-	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "Please don't specify a pipeline version or pipeline ID when you specify a workflow manifest.")
-}
-
-func TestValidateApiJob_ValidatePipelineSpecFailed(t *testing.T) {
-	clients, manager, experiment := initWithExperiment(t)
-	defer clients.Close()
-	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
-		Name:           "job1",
-		Enabled:        true,
-		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
-				StartTime: &timestamp.Timestamp{Seconds: 1},
-				Cron:      "1 * * * *",
-			}}},
-		PipelineSpec: &api.PipelineSpec{
-			PipelineId: "not_exist_pipeline",
-			Parameters: []*api.Parameter{{Name: "param2", Value: "world"}},
-		},
-		ResourceReferences: []*api.ResourceReference{
-			{Key: &api.ResourceKey{Type: api.ResourceType_EXPERIMENT, Id: experiment.UUID}, Relationship: api.Relationship_OWNER},
+			Parameters:       []*apiv1beta1.Parameter{{Name: "param1", Value: "world"}},
 		},
 	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
-	assert.Equal(t, codes.NotFound, err.(*util.UserError).ExternalStatusCode())
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "Pipeline not_exist_pipeline not found")
-}
-
-func TestValidateApiJob_InvalidCron(t *testing.T) {
-	clients, manager, experiment := initWithExperiment(t)
-	defer clients.Close()
-	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
-		Name:           "job1",
-		Enabled:        true,
-		MaxConcurrency: 1,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
-				StartTime: &timestamp.Timestamp{Seconds: 1},
-				Cron:      "1 * * ",
-			}}},
-		PipelineSpec: &api.PipelineSpec{
-			WorkflowManifest: testWorkflow.ToStringForStore(),
-			Parameters:       []*api.Parameter{{Name: "param1", Value: "world"}},
-		},
-		ResourceReferences: []*api.ResourceReference{
-			{Key: &api.ResourceKey{Type: api.ResourceType_EXPERIMENT, Id: experiment.UUID}, Relationship: api.Relationship_OWNER},
-		},
+	matched := 0
+	for _, resRef := range expectedJob.GetResourceReferences() {
+		for _, resRef2 := range job.GetResourceReferences() {
+			if resRef.Key.Type == resRef2.Key.Type && resRef.Key.Id == resRef2.Key.Id && resRef.Relationship == resRef2.Relationship {
+				matched++
+			}
+		}
 	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-	assert.Contains(t, err.Error(), "Schedule cron is not a supported format")
-}
-
-func TestValidateApiJob_MaxConcurrencyOutOfRange(t *testing.T) {
-	clients, manager, experiment := initWithExperiment(t)
-	defer clients.Close()
-	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
-		Name:           "job1",
-		Enabled:        true,
-		MaxConcurrency: 0,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_CronSchedule{CronSchedule: &api.CronSchedule{
-				StartTime: &timestamp.Timestamp{Seconds: 1},
-				Cron:      "1 * * * *",
-			}}},
-		PipelineSpec: &api.PipelineSpec{
-			WorkflowManifest: testWorkflow.ToStringForStore(),
-			Parameters:       []*api.Parameter{{Name: "param1", Value: "world"}},
-		},
-		ResourceReferences: []*api.ResourceReference{
-			{Key: &api.ResourceKey{Type: api.ResourceType_EXPERIMENT, Id: experiment.UUID}, Relationship: api.Relationship_OWNER},
-		},
-	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-	assert.Contains(t, err.Error(), "max concurrency of the job is out of range")
-}
-
-func TestValidateApiJob_NegativeIntervalSecond(t *testing.T) {
-	clients, manager, experiment := initWithExperiment(t)
-	defer clients.Close()
-	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	apiJob := &api.Job{
-		Name:           "job1",
-		Enabled:        true,
-		MaxConcurrency: 0,
-		Trigger: &api.Trigger{
-			Trigger: &api.Trigger_PeriodicSchedule{PeriodicSchedule: &api.PeriodicSchedule{
-				IntervalSecond: -1,
-			}}},
-		PipelineSpec: &api.PipelineSpec{
-			WorkflowManifest: testWorkflow.ToStringForStore(),
-			Parameters:       []*api.Parameter{{Name: "param1", Value: "world"}},
-		},
-		ResourceReferences: []*api.ResourceReference{
-			{Key: &api.ResourceKey{Type: api.ResourceType_EXPERIMENT, Id: experiment.UUID}, Relationship: api.Relationship_OWNER},
-		},
-	}
-	err := server.validateCreateJobRequest(&api.CreateJobRequest{Job: apiJob})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-	assert.Contains(t, err.Error(), "The max concurrency of the job is out of range")
+	assert.Equal(t, len(rr), matched)
+	expectedJob.ResourceReferences = job.GetResourceReferences()
+	expectedJob.CreatedAt = job.GetCreatedAt()
+	expectedJob.UpdatedAt = job.GetUpdatedAt()
+	assert.Equal(t, expectedJob, job)
 }
 
 func TestCreateJob(t *testing.T) {
 	clients, manager, _ := initWithExperiment(t)
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	job, err := server.CreateJob(nil, &api.CreateJobRequest{Job: commonApiJob})
+	job, err := server.CreateJob(nil, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.Nil(t, err)
+	matched := 0
+	for _, resRef := range commonExpectedJob.GetResourceReferences() {
+		for _, resRef2 := range job.GetResourceReferences() {
+			if resRef.Key.Type == resRef2.Key.Type && resRef.Key.Id == resRef2.Key.Id && resRef.Relationship == resRef2.Relationship {
+				matched++
+			}
+		}
+	}
+	assert.Equal(t, len(commonExpectedJob.GetResourceReferences()), matched)
+	commonExpectedJob.ResourceReferences = job.GetResourceReferences()
+
+	commonExpectedJob.PipelineSpec.PipelineId = job.GetPipelineSpec().GetPipelineId()
+	commonExpectedJob.PipelineSpec.PipelineName = job.GetPipelineSpec().GetPipelineName()
+	commonExpectedJob.PipelineSpec.PipelineManifest = job.GetPipelineSpec().GetPipelineManifest()
+	commonExpectedJob.CreatedAt = job.GetCreatedAt()
+	commonExpectedJob.UpdatedAt = job.GetUpdatedAt()
 	assert.Equal(t, commonExpectedJob, job)
+}
+
+func TestCreateJob_V2(t *testing.T) {
+	clients, manager, _ := initWithExperiment(t)
+	defer clients.Close()
+	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+
+	listParams := []interface{}{1, 2, 3}
+	v2RuntimeListParams, _ := structpb.NewList(listParams)
+	structParams := map[string]interface{}{"structParam1": "hello", "structParam2": 32}
+	v2RuntimeStructParams, _ := structpb.NewStruct(structParams)
+
+	// Test all parameters types converted to model.RuntimeConfig.Parameters, which is string type
+	v2RuntimeParams := map[string]*structpb.Value{
+		"param1": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
+		"param2": {Kind: &structpb.Value_BoolValue{BoolValue: true}},
+		"param3": {Kind: &structpb.Value_ListValue{ListValue: v2RuntimeListParams}},
+		"param4": {Kind: &structpb.Value_NumberValue{NumberValue: 12}},
+		"param5": {Kind: &structpb.Value_StructValue{StructValue: v2RuntimeStructParams}},
+	}
+
+	apiJob_V2 := &apiv1beta1.Job{
+		Name:           "job1",
+		Enabled:        true,
+		MaxConcurrency: 1,
+		Trigger: &apiv1beta1.Trigger{
+			Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		PipelineSpec: &apiv1beta1.PipelineSpec{
+			WorkflowManifest: v2SpecHelloWorldParams,
+			RuntimeConfig: &apiv1beta1.PipelineSpec_RuntimeConfig{
+				Parameters:   v2RuntimeParams,
+				PipelineRoot: "model-pipeline-root",
+			},
+		},
+		ResourceReferences: []*apiv1beta1.ResourceReference{
+			{
+				Key:          &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: "123e4567-e89b-12d3-a456-426655440000"},
+				Relationship: apiv1beta1.Relationship_OWNER,
+			},
+		},
+	}
+
+	expectedJob_V2 := &apiv1beta1.Job{
+		Id:             "123e4567-e89b-12d3-a456-426655440000",
+		Name:           "job1",
+		ServiceAccount: "pipeline-runner",
+		Enabled:        true,
+		MaxConcurrency: 1,
+		Trigger: &apiv1beta1.Trigger{
+			Trigger: &apiv1beta1.Trigger_CronSchedule{CronSchedule: &apiv1beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		CreatedAt: &timestamp.Timestamp{Seconds: 2},
+		UpdatedAt: &timestamp.Timestamp{Seconds: 2},
+		Status:    "STATUS_UNSPECIFIED",
+		PipelineSpec: &apiv1beta1.PipelineSpec{
+			PipelineManifest: v2SpecHelloWorldParams,
+			WorkflowManifest: v2SpecHelloWorldParams,
+			RuntimeConfig: &apiv1beta1.PipelineSpec_RuntimeConfig{
+				Parameters:   v2RuntimeParams,
+				PipelineRoot: "model-pipeline-root",
+			},
+		},
+		ResourceReferences: []*apiv1beta1.ResourceReference{
+			{
+				Key:  &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: "123e4567-e89b-12d3-a456-426655440000"},
+				Name: "exp1", Relationship: apiv1beta1.Relationship_OWNER,
+			},
+		},
+	}
+	job, err := server.CreateJob(nil, &apiv1beta1.CreateJobRequest{Job: apiJob_V2})
+	assert.Nil(t, err)
+
+	matched := 0
+	for _, resRef := range expectedJob_V2.GetResourceReferences() {
+		for _, resRef2 := range job.GetResourceReferences() {
+			if resRef.Key.Type == resRef2.Key.Type && resRef.Key.Id == resRef2.Key.Id && resRef.Relationship == resRef2.Relationship {
+				matched++
+			}
+		}
+	}
+	assert.Equal(t, len(expectedJob_V2.GetResourceReferences()), matched)
+	expectedJob_V2.ResourceReferences = job.GetResourceReferences()
+
+	expectedJob_V2.PipelineSpec.PipelineId = job.GetPipelineSpec().GetPipelineId()
+	expectedJob_V2.PipelineSpec.PipelineName = job.GetPipelineSpec().GetPipelineName()
+	expectedJob_V2.CreatedAt = job.GetCreatedAt()
+	expectedJob_V2.UpdatedAt = job.GetUpdatedAt()
+	job.PipelineSpec.RuntimeConfig.Parameters = v2RuntimeParams
+
+	assert.Equal(t, expectedJob_V2, job)
+}
+
+func TestListRecurringRuns_MultiUser(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	defer viper.Set(common.MultiUserMode, "false")
+	userIdentity := "user@google.com"
+	md := metadata.New(map[string]string{common.GoogleIAPUserIdentityHeader: common.GoogleIAPUserIdentityPrefix + userIdentity})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	clients, manager, experiment := initWithExperiment(t)
+	defer clients.Close()
+	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+
+	pipelineSpecStruct := &structpb.Struct{}
+	yaml.Unmarshal([]byte(v2SpecHelloWorld), pipelineSpecStruct)
+
+	apiRecurringRun := &apiv2beta1.RecurringRun{
+		DisplayName:    "recurring_run_1",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		ExperimentId: experiment.UUID,
+	}
+
+	_, err := server.CreateRecurringRun(ctx, &apiv2beta1.CreateRecurringRunRequest{RecurringRun: apiRecurringRun})
+	assert.Nil(t, err)
+
+	expectedRecurringRun := &apiv2beta1.RecurringRun{
+		RecurringRunId: "123e4567-e89b-12d3-a456-426655440000",
+		DisplayName:    "recurring_run_1",
+		ServiceAccount: "pipeline-runner",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		Namespace:      "ns1",
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		CreatedAt:      &timestamp.Timestamp{Seconds: 2},
+		UpdatedAt:      &timestamp.Timestamp{Seconds: 2},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		Status:       apiv2beta1.RecurringRun_ENABLED,
+		ExperimentId: experiment.UUID,
+	}
+
+	expectedRecurringRunsList := []*apiv2beta1.RecurringRun{expectedRecurringRun}
+
+	// List API should fail in multi-user mode for empty requests
+	actualRecurringRunsList, err := server.ListRecurringRuns(ctx, &apiv2beta1.ListRecurringRunsRequest{})
+	assert.NotNil(t, err)
+	assert.Nil(t, actualRecurringRunsList)
+
+	actualRecurringRunsList2, err := server.ListRecurringRuns(ctx, &apiv2beta1.ListRecurringRunsRequest{
+		ExperimentId: experiment.UUID,
+	})
+	actualRecurringRunsList2.RecurringRuns[0].RuntimeConfig.Parameters = map[string]*structpb.Value{
+		"param1": structpb.NewStringValue("world"),
+	}
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(actualRecurringRunsList2.RecurringRuns))
+	assert.Equal(t, expectedRecurringRunsList, actualRecurringRunsList2.RecurringRuns)
 }
 
 func TestCreateJob_Unauthorized(t *testing.T) {
@@ -313,20 +593,12 @@ func TestCreateJob_Unauthorized(t *testing.T) {
 	defer clients.Close()
 
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	_, err := server.CreateJob(ctx, &api.CreateJobRequest{Job: commonApiJob})
+	_, err := server.CreateJob(ctx, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.NotNil(t, err)
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: "ns1",
-		Verb:      common.RbacResourceVerbCreate,
-		Group:     common.RbacPipelinesGroup,
-		Version:   common.RbacPipelinesVersion,
-		Resource:  common.RbacResourceTypeJobs,
-		Name:      commonApiJob.Name,
-	}
-	assert.EqualError(
+	assert.Contains(
 		t,
-		err,
-		wrapFailedAuthzRequestError(wrapFailedAuthzApiResourcesError(getPermissionDeniedError(userIdentity, resourceAttributes))).Error(),
+		err.Error(),
+		"PermissionDenied: User 'user@google.com' is not authorized with reason",
 	)
 }
 
@@ -342,27 +614,19 @@ func TestGetJob_Unauthorized(t *testing.T) {
 	defer clients.Close()
 
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	job, err := server.CreateJob(ctx, &api.CreateJobRequest{Job: commonApiJob})
+	job, err := server.CreateJob(ctx, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.Nil(t, err)
 
 	clients.SubjectAccessReviewClientFake = client.NewFakeSubjectAccessReviewClientUnauthorized()
-	manager = resource.NewResourceManager(clients)
+	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
 	server = NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
 
-	_, err = server.GetJob(ctx, &api.GetJobRequest{Id: job.Id})
+	_, err = server.GetJob(ctx, &apiv1beta1.GetJobRequest{Id: job.Id})
 	assert.NotNil(t, err)
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: "ns1",
-		Verb:      common.RbacResourceVerbGet,
-		Group:     common.RbacPipelinesGroup,
-		Version:   common.RbacPipelinesVersion,
-		Resource:  common.RbacResourceTypeJobs,
-		Name:      job.Name,
-	}
-	assert.EqualError(
+	assert.Contains(
 		t,
-		err,
-		wrapFailedAuthzRequestError(wrapFailedAuthzApiResourcesError(getPermissionDeniedError(userIdentity, resourceAttributes))).Error(),
+		err.Error(),
+		"PermissionDenied: User 'user@google.com' is not authorized with reason",
 	)
 }
 
@@ -376,11 +640,27 @@ func TestGetJob_Multiuser(t *testing.T) {
 	clients, manager, _ := initWithExperiment(t)
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	createdJob, err := server.CreateJob(ctx, &api.CreateJobRequest{Job: commonApiJob})
+	createdJob, err := server.CreateJob(ctx, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.Nil(t, err)
 
-	job, err := server.GetJob(ctx, &api.GetJobRequest{Id: createdJob.Id})
+	job, err := server.GetJob(ctx, &apiv1beta1.GetJobRequest{Id: createdJob.Id})
 	assert.Nil(t, err)
+	matched := 0
+	for _, resRef := range commonExpectedJob.GetResourceReferences() {
+		for _, resRef2 := range job.GetResourceReferences() {
+			if resRef.Key.Type == resRef2.Key.Type && resRef.Key.Id == resRef2.Key.Id && resRef.Relationship == resRef2.Relationship {
+				matched++
+			}
+		}
+	}
+	assert.Equal(t, len(commonExpectedJob.GetResourceReferences()), matched)
+	commonExpectedJob.ResourceReferences = job.GetResourceReferences()
+
+	commonExpectedJob.PipelineSpec.PipelineId = job.GetPipelineSpec().GetPipelineId()
+	commonExpectedJob.PipelineSpec.PipelineName = job.GetPipelineSpec().GetPipelineName()
+	commonExpectedJob.PipelineSpec.PipelineManifest = job.GetPipelineSpec().GetPipelineManifest()
+	commonExpectedJob.CreatedAt = job.GetCreatedAt()
+	commonExpectedJob.UpdatedAt = job.GetUpdatedAt()
 	assert.Equal(t, commonExpectedJob, job)
 }
 
@@ -396,43 +676,30 @@ func TestListJobs_Unauthorized(t *testing.T) {
 	defer clients.Close()
 
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	_, err := server.ListJobs(ctx, &api.ListJobsRequest{
-		ResourceReferenceKey: &api.ResourceKey{
-			Type: api.ResourceType_EXPERIMENT,
+	_, err := server.ListJobs(ctx, &apiv1beta1.ListJobsRequest{
+		ResourceReferenceKey: &apiv1beta1.ResourceKey{
+			Type: apiv1beta1.ResourceType_EXPERIMENT,
 			Id:   experiment.UUID,
 		},
 	})
 	assert.NotNil(t, err)
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: "ns1",
-		Verb:      common.RbacResourceVerbList,
-		Group:     common.RbacPipelinesGroup,
-		Version:   common.RbacPipelinesVersion,
-		Resource:  common.RbacResourceTypeJobs,
-	}
-	assert.EqualError(
+	assert.Contains(
 		t,
-		err,
-		util.Wrap(
-			wrapFailedAuthzApiResourcesError(getPermissionDeniedError(userIdentity, resourceAttributes)),
-			"Failed to authorize with namespace in experiment resource reference.",
-		).Error(),
+		err.Error(),
+		"PermissionDenied: User 'user@google.com' is not authorized with reason",
 	)
 
-	_, err = server.ListJobs(ctx, &api.ListJobsRequest{
-		ResourceReferenceKey: &api.ResourceKey{
-			Type: api.ResourceType_NAMESPACE,
+	_, err = server.ListJobs(ctx, &apiv1beta1.ListJobsRequest{
+		ResourceReferenceKey: &apiv1beta1.ResourceKey{
+			Type: apiv1beta1.ResourceType_NAMESPACE,
 			Id:   "ns1",
 		},
 	})
 	assert.NotNil(t, err)
-	assert.EqualError(
+	assert.Contains(
 		t,
-		err,
-		util.Wrap(
-			wrapFailedAuthzApiResourcesError(getPermissionDeniedError(userIdentity, resourceAttributes)),
-			"Failed to authorize with namespace resource reference.",
-		).Error(),
+		err.Error(),
+		"PermissionDenied: User 'user@google.com' is not authorized with reason",
 	)
 }
 
@@ -446,25 +713,31 @@ func TestListJobs_Multiuser(t *testing.T) {
 	clients, manager, _ := initWithExperiment(t)
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	_, err := server.CreateJob(ctx, &api.CreateJobRequest{Job: commonApiJob})
+	_, err := server.CreateJob(ctx, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.Nil(t, err)
 
-	var expectedJobs []*api.Job
+	var expectedJobs []*apiv1beta1.Job
+	commonExpectedJob.CreatedAt = &timestamp.Timestamp{Seconds: 2}
+	commonExpectedJob.UpdatedAt = &timestamp.Timestamp{Seconds: 2}
+	commonExpectedJob.ResourceReferences = []*apiv1beta1.ResourceReference{
+		{Key: &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_NAMESPACE, Id: "ns1"}, Relationship: apiv1beta1.Relationship_OWNER},
+		{Key: &apiv1beta1.ResourceKey{Type: apiv1beta1.ResourceType_EXPERIMENT, Id: DefaultFakeIdOne}, Relationship: apiv1beta1.Relationship_OWNER},
+	}
 	expectedJobs = append(expectedJobs, commonExpectedJob)
-	expectedJobsEmpty := []*api.Job{}
+	expectedJobsEmpty := []*apiv1beta1.Job{}
 
 	tests := []struct {
 		name         string
-		request      *api.ListJobsRequest
+		request      *apiv1beta1.ListJobsRequest
 		wantError    bool
 		errorMessage string
-		expectedJobs []*api.Job
+		expectedJobs []*apiv1beta1.Job
 	}{
 		{
 			"Valid - filter by experiment",
-			&api.ListJobsRequest{
-				ResourceReferenceKey: &api.ResourceKey{
-					Type: api.ResourceType_EXPERIMENT,
+			&apiv1beta1.ListJobsRequest{
+				ResourceReferenceKey: &apiv1beta1.ResourceKey{
+					Type: apiv1beta1.ResourceType_EXPERIMENT,
 					Id:   "123e4567-e89b-12d3-a456-426655440000",
 				},
 			},
@@ -474,9 +747,9 @@ func TestListJobs_Multiuser(t *testing.T) {
 		},
 		{
 			"Valid - filter by namespace",
-			&api.ListJobsRequest{
-				ResourceReferenceKey: &api.ResourceKey{
-					Type: api.ResourceType_NAMESPACE,
+			&apiv1beta1.ListJobsRequest{
+				ResourceReferenceKey: &apiv1beta1.ResourceKey{
+					Type: apiv1beta1.ResourceType_NAMESPACE,
 					Id:   "ns1",
 				},
 			},
@@ -486,9 +759,9 @@ func TestListJobs_Multiuser(t *testing.T) {
 		},
 		{
 			"Vailid - filter by namespace - no result",
-			&api.ListJobsRequest{
-				ResourceReferenceKey: &api.ResourceKey{
-					Type: api.ResourceType_NAMESPACE,
+			&apiv1beta1.ListJobsRequest{
+				ResourceReferenceKey: &apiv1beta1.ResourceKey{
+					Type: apiv1beta1.ResourceType_NAMESPACE,
 					Id:   "no-such-ns",
 				},
 			},
@@ -497,17 +770,17 @@ func TestListJobs_Multiuser(t *testing.T) {
 			expectedJobsEmpty,
 		},
 		{
-			"Invalid - no filter",
-			&api.ListJobsRequest{},
+			"Invalid - empty request",
+			&apiv1beta1.ListJobsRequest{},
 			true,
-			"ListJobs must filter by resource reference",
+			"a recurring run cannot have an empty namespace in multi-user mode",
 			nil,
 		},
 		{
 			"Inalid - invalid filter type",
-			&api.ListJobsRequest{
-				ResourceReferenceKey: &api.ResourceKey{
-					Type: api.ResourceType_UNKNOWN_RESOURCE_TYPE,
+			&apiv1beta1.ListJobsRequest{
+				ResourceReferenceKey: &apiv1beta1.ResourceKey{
+					Type: apiv1beta1.ResourceType_UNKNOWN_RESOURCE_TYPE,
 					Id:   "unknown",
 				},
 			},
@@ -529,8 +802,8 @@ func TestListJobs_Multiuser(t *testing.T) {
 		} else {
 			if err != nil {
 				t.Errorf("TestListJobs_Multiuser(%v) expect no error but got %v", tc.name, err)
-			} else if !cmp.Equal(tc.expectedJobs, response.Jobs, cmpopts.EquateEmpty(), protocmp.Transform(),cmpopts.IgnoreFields(api.Job{}, "Trigger", "UpdatedAt", "CreatedAt"),
-				cmpopts.IgnoreFields(api.Run{}, "CreatedAt")) {
+			} else if !cmp.Equal(tc.expectedJobs, response.Jobs, cmpopts.EquateEmpty(), protocmp.Transform(), cmpopts.IgnoreFields(apiv1beta1.Job{}, "Trigger", "UpdatedAt", "CreatedAt"),
+				cmpopts.IgnoreFields(apiv1beta1.Run{}, "CreatedAt")) {
 				t.Errorf("TestListJobs_Multiuser(%v) expect (%+v) but got (%+v)", tc.name, tc.expectedJobs, response.Jobs)
 			}
 		}
@@ -548,27 +821,19 @@ func TestEnableJob_Unauthorized(t *testing.T) {
 	clients, manager, _ := initWithExperiment(t)
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	job, err := server.CreateJob(ctx, &api.CreateJobRequest{Job: commonApiJob})
+	job, err := server.CreateJob(ctx, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.Nil(t, err)
 
 	clients.SubjectAccessReviewClientFake = client.NewFakeSubjectAccessReviewClientUnauthorized()
-	manager = resource.NewResourceManager(clients)
+	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
 	server = NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
 
-	_, err = server.EnableJob(ctx, &api.EnableJobRequest{Id: job.Id})
+	_, err = server.EnableJob(ctx, &apiv1beta1.EnableJobRequest{Id: job.Id})
 	assert.NotNil(t, err)
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: "ns1",
-		Verb:      common.RbacResourceVerbEnable,
-		Group:     common.RbacPipelinesGroup,
-		Version:   common.RbacPipelinesVersion,
-		Resource:  common.RbacResourceTypeJobs,
-		Name:      commonApiJob.Name,
-	}
-	assert.EqualError(
+	assert.Contains(
 		t,
-		err,
-		wrapFailedAuthzRequestError(wrapFailedAuthzApiResourcesError(getPermissionDeniedError(userIdentity, resourceAttributes))).Error(),
+		err.Error(),
+		" PermissionDenied: User 'user@google.com' is not authorized with reason",
 	)
 }
 
@@ -583,10 +848,10 @@ func TestEnableJob_Multiuser(t *testing.T) {
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
 
-	job, err := server.CreateJob(ctx, &api.CreateJobRequest{Job: commonApiJob})
+	job, err := server.CreateJob(ctx, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.Nil(t, err)
 
-	_, err = server.EnableJob(ctx, &api.EnableJobRequest{Id: job.Id})
+	_, err = server.EnableJob(ctx, &apiv1beta1.EnableJobRequest{Id: job.Id})
 	assert.Nil(t, err)
 }
 
@@ -601,27 +866,19 @@ func TestDisableJob_Unauthorized(t *testing.T) {
 	clients, manager, _ := initWithExperiment(t)
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	job, err := server.CreateJob(ctx, &api.CreateJobRequest{Job: commonApiJob})
+	job, err := server.CreateJob(ctx, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.Nil(t, err)
 
 	clients.SubjectAccessReviewClientFake = client.NewFakeSubjectAccessReviewClientUnauthorized()
-	manager = resource.NewResourceManager(clients)
+	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
 	server = NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
 
-	_, err = server.DisableJob(ctx, &api.DisableJobRequest{Id: job.Id})
+	_, err = server.DisableJob(ctx, &apiv1beta1.DisableJobRequest{Id: job.Id})
 	assert.NotNil(t, err)
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: "ns1",
-		Verb:      common.RbacResourceVerbDisable,
-		Group:     common.RbacPipelinesGroup,
-		Version:   common.RbacPipelinesVersion,
-		Resource:  common.RbacResourceTypeJobs,
-		Name:      job.Name,
-	}
-	assert.EqualError(
+	assert.Contains(
 		t,
-		err,
-		wrapFailedAuthzRequestError(wrapFailedAuthzApiResourcesError(getPermissionDeniedError(userIdentity, resourceAttributes))).Error(),
+		err.Error(),
+		" PermissionDenied: User 'user@google.com' is not authorized with reason",
 	)
 }
 
@@ -636,10 +893,10 @@ func TestDisableJob_Multiuser(t *testing.T) {
 	defer clients.Close()
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
 
-	job, err := server.CreateJob(ctx, &api.CreateJobRequest{Job: commonApiJob})
+	job, err := server.CreateJob(ctx, &apiv1beta1.CreateJobRequest{Job: commonApiJob})
 	assert.Nil(t, err)
 
-	_, err = server.DisableJob(ctx, &api.DisableJobRequest{Id: job.Id})
+	_, err = server.DisableJob(ctx, &apiv1beta1.DisableJobRequest{Id: job.Id})
 	assert.Nil(t, err)
 }
 
@@ -654,35 +911,304 @@ func TestListJobs_Unauthenticated(t *testing.T) {
 	defer clients.Close()
 
 	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
-	_, err := server.ListJobs(ctx, &api.ListJobsRequest{
-		ResourceReferenceKey: &api.ResourceKey{
-			Type: api.ResourceType_EXPERIMENT,
+	_, err := server.ListJobs(ctx, &apiv1beta1.ListJobsRequest{
+		ResourceReferenceKey: &apiv1beta1.ResourceKey{
+			Type: apiv1beta1.ResourceType_EXPERIMENT,
 			Id:   experiment.UUID,
 		},
 	})
 	assert.NotNil(t, err)
-	assert.EqualError(
+	assert.Contains(
 		t,
-		err,
-		util.Wrap(
-			wrapFailedAuthzApiResourcesError(kfpauth.IdentityHeaderMissingError),
-			"Failed to authorize with namespace in experiment resource reference.",
-		).Error(),
+		err.Error(),
+		"User identity is empty in the request header",
 	)
 
-	_, err = server.ListJobs(ctx, &api.ListJobsRequest{
-		ResourceReferenceKey: &api.ResourceKey{
-			Type: api.ResourceType_NAMESPACE,
+	_, err = server.ListJobs(ctx, &apiv1beta1.ListJobsRequest{
+		ResourceReferenceKey: &apiv1beta1.ResourceKey{
+			Type: apiv1beta1.ResourceType_NAMESPACE,
 			Id:   "ns1",
 		},
 	})
 	assert.NotNil(t, err)
-	assert.EqualError(
+	assert.Contains(
 		t,
-		err,
-		util.Wrap(
-			wrapFailedAuthzApiResourcesError(kfpauth.IdentityHeaderMissingError),
-			"Failed to authorize with namespace resource reference.",
-		).Error(),
+		err.Error(),
+		"User identity is empty in the request header",
 	)
+}
+
+func TestCreateRecurringRun(t *testing.T) {
+	clients, manager, _ := initWithExperiment(t)
+	defer clients.Close()
+	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+
+	pipelineSpecStruct := &structpb.Struct{}
+	yaml.Unmarshal([]byte(v2SpecHelloWorld), pipelineSpecStruct)
+
+	apiRecurringRun := &apiv2beta1.RecurringRun{
+		DisplayName:    "recurring_run_1",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		ExperimentId: "123e4567-e89b-12d3-a456-426655440000",
+	}
+
+	recurringRun, err := server.CreateRecurringRun(nil, &apiv2beta1.CreateRecurringRunRequest{RecurringRun: apiRecurringRun})
+	assert.Nil(t, err)
+
+	expectedRecurringRun := &apiv2beta1.RecurringRun{
+		RecurringRunId: "123e4567-e89b-12d3-a456-426655440000",
+		DisplayName:    "recurring_run_1",
+		ServiceAccount: "pipeline-runner",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		Namespace:      "ns1",
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		CreatedAt:      &timestamp.Timestamp{Seconds: 2},
+		UpdatedAt:      &timestamp.Timestamp{Seconds: 2},
+		Status:         apiv2beta1.RecurringRun_ENABLED,
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		ExperimentId: "123e4567-e89b-12d3-a456-426655440000",
+	}
+	recurringRun.RuntimeConfig.Parameters = map[string]*structpb.Value{
+		"param1": structpb.NewStringValue("world"),
+	}
+	assert.Equal(t, expectedRecurringRun, recurringRun)
+}
+
+func TestGetRecurringRun(t *testing.T) {
+	clients, manager, _ := initWithExperiment(t)
+	defer clients.Close()
+	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+
+	pipelineSpecStruct := &structpb.Struct{}
+	yaml.Unmarshal([]byte(v2SpecHelloWorld), pipelineSpecStruct)
+
+	apiRecurringRun := &apiv2beta1.RecurringRun{
+		DisplayName:    "recurring_run_1",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		ExperimentId: "123e4567-e89b-12d3-a456-426655440000",
+	}
+
+	createdRecurringRun, err := server.CreateRecurringRun(nil, &apiv2beta1.CreateRecurringRunRequest{RecurringRun: apiRecurringRun})
+	assert.Nil(t, err)
+
+	expectedRecurringRun := &apiv2beta1.RecurringRun{
+		RecurringRunId: "123e4567-e89b-12d3-a456-426655440000",
+		DisplayName:    "recurring_run_1",
+		ServiceAccount: "pipeline-runner",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		Namespace:      "ns1",
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		CreatedAt:      &timestamp.Timestamp{Seconds: 2},
+		UpdatedAt:      &timestamp.Timestamp{Seconds: 2},
+		Status:         apiv2beta1.RecurringRun_ENABLED,
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		ExperimentId: "123e4567-e89b-12d3-a456-426655440000",
+	}
+
+	recurringRun, err := server.GetRecurringRun(nil, &apiv2beta1.GetRecurringRunRequest{RecurringRunId: createdRecurringRun.RecurringRunId})
+	assert.Nil(t, err)
+	recurringRun.RuntimeConfig.Parameters = map[string]*structpb.Value{
+		"param1": structpb.NewStringValue("world"),
+	}
+	assert.Equal(t, expectedRecurringRun, recurringRun)
+}
+
+func TestListRecurringRuns(t *testing.T) {
+	clients, manager, experiment := initWithExperiment(t)
+	defer clients.Close()
+	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+
+	pipelineSpecStruct := &structpb.Struct{}
+	yaml.Unmarshal([]byte(v2SpecHelloWorld), pipelineSpecStruct)
+
+	apiRecurringRun := &apiv2beta1.RecurringRun{
+		DisplayName:    "recurring_run_1",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		ExperimentId: experiment.UUID,
+	}
+
+	_, err := server.CreateRecurringRun(context.Background(), &apiv2beta1.CreateRecurringRunRequest{RecurringRun: apiRecurringRun})
+	assert.Nil(t, err)
+
+	expectedRecurringRun := &apiv2beta1.RecurringRun{
+		RecurringRunId: "123e4567-e89b-12d3-a456-426655440000",
+		DisplayName:    "recurring_run_1",
+		ServiceAccount: "pipeline-runner",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		Namespace:      "ns1",
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		CreatedAt:      &timestamp.Timestamp{Seconds: 2},
+		UpdatedAt:      &timestamp.Timestamp{Seconds: 2},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		Status:       apiv2beta1.RecurringRun_ENABLED,
+		ExperimentId: experiment.UUID,
+	}
+
+	expectedRecurringRunsList := []*apiv2beta1.RecurringRun{expectedRecurringRun}
+
+	actualRecurringRunsList, err := server.ListRecurringRuns(context.Background(), &apiv2beta1.ListRecurringRunsRequest{})
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(actualRecurringRunsList.RecurringRuns))
+	actualRecurringRunsList.RecurringRuns[0].RuntimeConfig.Parameters = map[string]*structpb.Value{
+		"param1": structpb.NewStringValue("world"),
+	}
+	assert.Equal(t, expectedRecurringRunsList, actualRecurringRunsList.RecurringRuns)
+
+	actualRecurringRunsList2, err := server.ListRecurringRuns(context.Background(), &apiv2beta1.ListRecurringRunsRequest{
+		ExperimentId: experiment.UUID,
+	})
+	actualRecurringRunsList2.RecurringRuns[0].RuntimeConfig.Parameters = map[string]*structpb.Value{
+		"param1": structpb.NewStringValue("world"),
+	}
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(actualRecurringRunsList2.RecurringRuns))
+	assert.Equal(t, expectedRecurringRunsList, actualRecurringRunsList2.RecurringRuns)
+}
+
+func TestEnableRecurringRun(t *testing.T) {
+	clients, manager, _ := initWithExperiment(t)
+	defer clients.Close()
+	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+
+	pipelineSpecStruct := &structpb.Struct{}
+	yaml.Unmarshal([]byte(v2SpecHelloWorld), pipelineSpecStruct)
+
+	apiRecurringRun := &apiv2beta1.RecurringRun{
+		DisplayName:    "recurring_run_1",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		ExperimentId: "123e4567-e89b-12d3-a456-426655440000",
+	}
+
+	createdRecurringRun, err := server.CreateRecurringRun(nil, &apiv2beta1.CreateRecurringRunRequest{RecurringRun: apiRecurringRun})
+	assert.Nil(t, err)
+
+	_, err = server.EnableRecurringRun(nil, &apiv2beta1.EnableRecurringRunRequest{RecurringRunId: createdRecurringRun.RecurringRunId})
+	assert.Nil(t, err)
+}
+
+func TestDisableRecurringRun(t *testing.T) {
+	clients, manager, _ := initWithExperiment(t)
+	defer clients.Close()
+	server := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+
+	pipelineSpecStruct := &structpb.Struct{}
+	yaml.Unmarshal([]byte(v2SpecHelloWorld), pipelineSpecStruct)
+
+	apiRecurringRun := &apiv2beta1.RecurringRun{
+		DisplayName:    "recurring_run_1",
+		Mode:           apiv2beta1.RecurringRun_ENABLE,
+		MaxConcurrency: 1,
+		Trigger: &apiv2beta1.Trigger{
+			Trigger: &apiv2beta1.Trigger_CronSchedule{CronSchedule: &apiv2beta1.CronSchedule{
+				StartTime: &timestamp.Timestamp{Seconds: 1},
+				Cron:      "1 * * * *",
+			}},
+		},
+		PipelineSource: &apiv2beta1.RecurringRun_PipelineSpec{PipelineSpec: pipelineSpecStruct},
+		RuntimeConfig: &apiv2beta1.RuntimeConfig{
+			PipelineRoot: "model-pipeline-root",
+			Parameters: map[string]*structpb.Value{
+				"param1": structpb.NewStringValue("world"),
+			},
+		},
+		ExperimentId: "123e4567-e89b-12d3-a456-426655440000",
+	}
+
+	createdRecurringRun, err := server.CreateRecurringRun(nil, &apiv2beta1.CreateRecurringRunRequest{RecurringRun: apiRecurringRun})
+	assert.Nil(t, err)
+
+	_, err = server.DisableRecurringRun(nil, &apiv2beta1.DisableRecurringRunRequest{RecurringRunId: createdRecurringRun.RecurringRunId})
+	assert.Nil(t, err)
 }

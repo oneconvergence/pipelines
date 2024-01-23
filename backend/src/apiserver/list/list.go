@@ -26,9 +26,9 @@ import (
 	"strings"
 
 	sq "github.com/Masterminds/squirrel"
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/filter"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 )
 
@@ -65,7 +65,7 @@ type token struct {
 
 func (t *token) unmarshal(pageToken string) error {
 	errorF := func(err error) error {
-		return util.NewInvalidInputErrorWithDetails(err, "Invalid package token.")
+		return util.NewInvalidInputErrorWithDetails(err, "Invalid package token")
 	}
 	b, err := base64.StdEncoding.DecodeString(pageToken)
 	if err != nil {
@@ -82,7 +82,7 @@ func (t *token) unmarshal(pageToken string) error {
 func (t *token) marshal() (string, error) {
 	b, err := json.Marshal(t)
 	if err != nil {
-		return "", util.NewInternalServerError(err, "Failed to serialize page token.")
+		return "", util.NewInternalServerError(err, "Failed to serialize page token")
 	}
 	// return string(b), nil
 	return base64.StdEncoding.EncodeToString(b), nil
@@ -127,7 +127,7 @@ func NewOptionsFromToken(nextPageToken string, pageSize int) (*Options, error) {
 // NewOptions creates a new Options struct for the given listable. It uses
 // sorting and filtering criteria parsed from sortBy and filterProto
 // respectively.
-func NewOptions(listable Listable, pageSize int, sortBy string, filterProto *api.Filter) (*Options, error) {
+func NewOptions(listable Listable, pageSize int, sortBy string, filter *filter.Filter) (*Options, error) {
 	pageSize, err := validatePageSize(pageSize)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,8 @@ func NewOptions(listable Listable, pageSize int, sortBy string, filterProto *api
 
 	token := &token{
 		KeyFieldName: listable.PrimaryKeyColumnName(),
-		ModelName:    listable.GetModelName()}
+		ModelName:    listable.GetModelName(),
+	}
 
 	// Ignore the case of the letter. Split query string by space.
 	queryList := strings.Fields(strings.ToLower(sortBy))
@@ -162,14 +163,12 @@ func NewOptions(listable Listable, pageSize int, sortBy string, filterProto *api
 	}
 
 	// Filtering.
-	if filterProto != nil {
-		f, err := filter.NewWithKeyMap(filterProto, listable.APIToModelFieldMap(), listable.GetModelName())
-		if err != nil {
+	if filter != nil {
+		if err := filter.ReplaceKeys(listable.APIToModelFieldMap(), listable.GetModelName()); err != nil {
 			return nil, err
 		}
-		token.Filter = f
+		token.Filter = filter
 	}
-
 	return &Options{PageSize: pageSize, token: token}, nil
 }
 
@@ -191,14 +190,22 @@ func (o *Options) AddSortingToSelect(sqlBuilder sq.SelectBuilder) sq.SelectBuild
 	if o.SortByFieldValue != nil && o.KeyFieldValue != nil {
 		if o.IsDesc {
 			sqlBuilder = sqlBuilder.
-				Where(sq.Or{sq.Lt{o.SortByFieldPrefix + o.SortByFieldName: o.SortByFieldValue},
-					sq.And{sq.Eq{o.SortByFieldPrefix + o.SortByFieldName: o.SortByFieldValue},
-						sq.LtOrEq{o.KeyFieldPrefix + o.KeyFieldName: o.KeyFieldValue}}})
+				Where(sq.Or{
+					sq.Lt{o.SortByFieldPrefix + o.SortByFieldName: o.SortByFieldValue},
+					sq.And{
+						sq.Eq{o.SortByFieldPrefix + o.SortByFieldName: o.SortByFieldValue},
+						sq.LtOrEq{o.KeyFieldPrefix + o.KeyFieldName: o.KeyFieldValue},
+					},
+				})
 		} else {
 			sqlBuilder = sqlBuilder.
-				Where(sq.Or{sq.Gt{o.SortByFieldPrefix + o.SortByFieldName: o.SortByFieldValue},
-					sq.And{sq.Eq{o.SortByFieldPrefix + o.SortByFieldName: o.SortByFieldValue},
-						sq.GtOrEq{o.KeyFieldPrefix + o.KeyFieldName: o.KeyFieldValue}}})
+				Where(sq.Or{
+					sq.Gt{o.SortByFieldPrefix + o.SortByFieldName: o.SortByFieldValue},
+					sq.And{
+						sq.Eq{o.SortByFieldPrefix + o.SortByFieldName: o.SortByFieldValue},
+						sq.GtOrEq{o.KeyFieldPrefix + o.KeyFieldName: o.KeyFieldValue},
+					},
+				})
 		}
 	}
 
@@ -225,21 +232,23 @@ func (o *Options) AddFilterToSelect(sqlBuilder sq.SelectBuilder) sq.SelectBuilde
 }
 
 // FilterOnResourceReference filters the given resource's table by rows from the ResourceReferences
-// table that match an optional given filter, and returns the rebuilt SelectBuilder
-func FilterOnResourceReference(tableName string, columns []string, resourceType common.ResourceType,
-	selectCount bool, filterContext *common.FilterContext) (sq.SelectBuilder, error) {
+// table that match an optional given filter, and returns the rebuilt SelectBuilder.
+func FilterOnResourceReference(tableName string, columns []string, resourceType model.ResourceType,
+	selectCount bool, filterContext *model.FilterContext,
+) (sq.SelectBuilder, error) {
 	selectBuilder := sq.Select(columns...)
 	if selectCount {
 		selectBuilder = sq.Select("count(*)")
 	}
 	selectBuilder = selectBuilder.From(tableName)
-	if filterContext.ReferenceKey != nil {
+	if filterContext.ReferenceKey != nil && (filterContext.ReferenceKey.ID != "" || common.IsMultiUserMode()) {
 		resourceReferenceFilter, args, err := sq.Select("ResourceUUID").
 			From("resource_references as rf").
 			Where(sq.And{
 				sq.Eq{"rf.ResourceType": resourceType},
 				sq.Eq{"rf.ReferenceUUID": filterContext.ID},
-				sq.Eq{"rf.ReferenceType": filterContext.Type}}).ToSql()
+				sq.Eq{"rf.ReferenceType": filterContext.Type},
+			}).ToSql()
 		if err != nil {
 			return selectBuilder, util.NewInternalServerError(
 				err, "Failed to create subquery to filter by resource reference: %v", err.Error())
@@ -250,7 +259,7 @@ func FilterOnResourceReference(tableName string, columns []string, resourceType 
 }
 
 // FilterOnExperiment filters the given table by rows based on provided experiment ID,
-// and returns the rebuilt SelectBuilder
+// and returns the rebuilt SelectBuilder.
 func FilterOnExperiment(
 	tableName string,
 	columns []string,
@@ -286,7 +295,7 @@ func filterByColumnValue(
 	return selectBuilder
 }
 
-// Scans the one given row into a number, and returns the number
+// Scans the one given row into a number, and returns the number.
 func ScanRowToTotalSize(rows *sql.Rows) (int, error) {
 	var total_size int
 	rows.Next()

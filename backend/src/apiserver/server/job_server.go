@@ -18,15 +18,15 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
+	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/robfig/cron"
 	authorizationv1 "k8s.io/api/authorization/v1"
 )
 
@@ -80,246 +80,353 @@ type JobServer struct {
 	options         *JobServerOptions
 }
 
-func (s *JobServer) CreateJob(ctx context.Context, request *api.CreateJobRequest) (*api.Job, error) {
+func (s *JobServer) createJob(ctx context.Context, job *model.Job) (*model.Job, error) {
+	// Validate user inputs
+	if job.DisplayName == "" {
+		return nil, util.NewInvalidInputError("Recurring run name is empty. Please specify a valid name")
+	}
+	experimentId, namespace, err := s.resourceManager.GetValidExperimentNamespacePair(job.ExperimentId, job.Namespace)
+	if err != nil {
+		return nil, util.Wrapf(err, "Failed to create a recurring run due to invalid experimentId and namespace combination")
+	}
+	if common.IsMultiUserMode() && namespace == "" {
+		return nil, util.NewInvalidInputError("Recurring run cannot have an empty namespace in multi-user mode")
+	}
+	job.ExperimentId = experimentId
+	job.Namespace = namespace
+	// Check authorization
+	resourceAttributes := &authorizationv1.ResourceAttributes{
+		Namespace: job.Namespace,
+		Verb:      common.RbacResourceVerbCreate,
+		Name:      job.DisplayName,
+	}
+	if err := s.canAccessJob(ctx, "", resourceAttributes); err != nil {
+		return nil, util.Wrapf(err, "Failed to create a recurring run due to authorization error. Check if you have write permission to namespace %s", job.Namespace)
+	}
+	return s.resourceManager.CreateJob(ctx, job)
+}
+
+func (s *JobServer) CreateJob(ctx context.Context, request *apiv1beta1.CreateJobRequest) (*apiv1beta1.Job, error) {
 	if s.options.CollectMetrics {
 		createJobRequests.Inc()
 	}
 
-	err := s.validateCreateJobRequest(request)
+	modelJob, err := toModelJob(request.GetJob())
 	if err != nil {
-		return nil, util.Wrap(err, "Validate create job request failed.")
+		return nil, util.Wrap(err, "Failed to create a recurring run due to conversion error")
 	}
-
-	if common.IsMultiUserMode() {
-		experimentID := common.GetExperimentIDFromAPIResourceReferences(request.Job.ResourceReferences)
-		if experimentID == "" {
-			return nil, util.NewInvalidInputError("Job has no experiment.")
-		}
-		namespace, err := s.resourceManager.GetNamespaceFromExperimentID(experimentID)
-		if err != nil {
-			return nil, util.Wrap(err, "Failed to get experiment for job.")
-		}
-		if namespace == "" {
-			return nil, util.NewInvalidInputError("Job's experiment has no namespace.")
-		}
-		resourceAttributes := &authorizationv1.ResourceAttributes{
-			Namespace: namespace,
-			Verb:      common.RbacResourceVerbCreate,
-			Name:      request.Job.Name,
-		}
-		err = s.canAccessJob(ctx, "", resourceAttributes)
-		if err != nil {
-			return nil, util.Wrap(err, "Failed to authorize the request")
-		}
-	}
-
-	newJob, err := s.resourceManager.CreateJob(ctx, request.Job)
+	newJob, err := s.createJob(ctx, modelJob)
 	if err != nil {
-		return nil, err
+		return nil, util.Wrap(err, "Failed to create a recurring run")
 	}
 
 	if s.options.CollectMetrics {
 		jobCount.Inc()
 	}
-	return ToApiJob(newJob), nil
+	return toApiJobV1(newJob), nil
 }
 
-func (s *JobServer) GetJob(ctx context.Context, request *api.GetJobRequest) (*api.Job, error) {
+func (s *JobServer) getJob(ctx context.Context, jobId string) (*model.Job, error) {
+	err := s.canAccessJob(ctx, jobId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to authorize the request")
+	}
+	return s.resourceManager.GetJob(jobId)
+}
+
+func (s *JobServer) GetJob(ctx context.Context, request *apiv1beta1.GetJobRequest) (*apiv1beta1.Job, error) {
 	if s.options.CollectMetrics {
 		getJobRequests.Inc()
 	}
 
-	err := s.canAccessJob(ctx, request.Id, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
+	recurringRun, err := s.getJob(ctx, request.GetId())
 	if err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
+		return nil, util.Wrap(err, "Failed to fetch a v1beta1 recurring run")
 	}
 
-	job, err := s.resourceManager.GetJob(request.Id)
-	if err != nil {
-		return nil, err
+	apiJob := toApiJobV1(recurringRun)
+	if apiJob == nil {
+		return nil, util.NewInternalServerError(util.NewInvalidInputError("Failed to convert internal recurring run representation to its v1beta1 API counterpart"), "Failed to fetch a v1beta1 recurring run")
 	}
-	return ToApiJob(job), nil
+	return apiJob, nil
 }
 
-func (s *JobServer) ListJobs(ctx context.Context, request *api.ListJobsRequest) (*api.ListJobsResponse, error) {
+func (s *JobServer) listJobs(ctx context.Context, pageToken string, pageSize int, sortBy string, opts *list.Options, namespace string, experimentId string) ([]*model.Job, int, string, error) {
+	namespace = s.resourceManager.ReplaceNamespace(namespace)
+	if experimentId != "" {
+		ns, err := s.resourceManager.GetNamespaceFromExperimentId(experimentId)
+		if err != nil {
+			return nil, 0, "", util.Wrapf(err, "Failed to list recurring runs due to error fetching namespace for experiment %s. Try filtering based on namespace", experimentId)
+		}
+		namespace = ns
+	}
+	resourceAttributes := &authorizationv1.ResourceAttributes{
+		Namespace: namespace,
+		Verb:      common.RbacResourceVerbList,
+	}
+	err := s.canAccessJob(ctx, "", resourceAttributes)
+	if err != nil {
+		return nil, 0, "", util.Wrapf(err, "Failed to list recurring runs due to authorization error. Check if you have permission to access namespace %s", namespace)
+	}
+
+	filterContext := &model.FilterContext{
+		ReferenceKey: &model.ReferenceKey{Type: model.NamespaceResourceType, ID: namespace},
+	}
+	if experimentId != "" {
+		if err := s.resourceManager.CheckExperimentBelongsToNamespace(experimentId, namespace); err != nil {
+			return nil, 0, "", util.Wrap(err, "Failed to list recurring runs due to namespace mismatch")
+		}
+		filterContext = &model.FilterContext{
+			ReferenceKey: &model.ReferenceKey{Type: model.ExperimentResourceType, ID: experimentId},
+		}
+	}
+	jobs, totalSize, token, err := s.resourceManager.ListJobs(filterContext, opts)
+	if err != nil {
+		return nil, 0, "", util.Wrap(err, "Failed to list recurring runs")
+	}
+	return jobs, totalSize, token, nil
+}
+
+func (s *JobServer) ListJobs(ctx context.Context, r *apiv1beta1.ListJobsRequest) (*apiv1beta1.ListJobsResponse, error) {
 	if s.options.CollectMetrics {
 		listJobRequests.Inc()
 	}
 
-	opts, err := validatedListOptions(&model.Job{}, request.PageToken, int(request.PageSize), request.SortBy, request.Filter)
-
+	filterContext, err := validateFilterV1(r.GetResourceReferenceKey())
 	if err != nil {
-		return nil, util.Wrap(err, "Failed to create list options")
+		return nil, util.Wrap(err, "Failed to list v1beta1 runs: validating filter failed")
 	}
+	namespace := ""
+	experimentId := ""
 
-	filterContext, err := ValidateFilter(request.ResourceReferenceKey)
-	if err != nil {
-		return nil, util.Wrap(err, "Validating filter failed.")
-	}
-
-	if common.IsMultiUserMode() {
-		refKey := filterContext.ReferenceKey
-		if refKey == nil {
-			return nil, util.NewInvalidInputError("ListJobs must filter by resource reference in multi-user mode.")
-		}
-		if refKey.Type == common.Namespace {
-			namespace := refKey.ID
-			if len(namespace) == 0 {
-				return nil, util.NewInvalidInputError("Invalid resource references for ListJobs. Namespace is empty.")
-			}
-			resourceAttributes := &authorizationv1.ResourceAttributes{
-				Namespace: namespace,
-				Verb:      common.RbacResourceVerbList,
-			}
-			err = s.canAccessJob(ctx, "", resourceAttributes)
-			if err != nil {
-				return nil, util.Wrap(err, "Failed to authorize with namespace resource reference.")
-			}
-		} else if refKey.Type == common.Experiment {
-			experimentID := refKey.ID
-			if len(experimentID) == 0 {
-				return nil, util.NewInvalidInputError("Invalid resource references for job. Experiment ID is empty.")
-			}
-			namespace, err := s.resourceManager.GetNamespaceFromExperimentID(experimentID)
-			if err != nil {
-				return nil, util.Wrap(err, "Failed to get namespace for job's experiment.")
-			}
-			resourceAttributes := &authorizationv1.ResourceAttributes{
-				Namespace: namespace,
-				Verb:      common.RbacResourceVerbList,
-			}
-			err = s.canAccessJob(ctx, "", resourceAttributes)
-			if err != nil {
-				return nil, util.Wrap(err, "Failed to authorize with namespace in experiment resource reference.")
-			}
-		} else {
-			return nil, util.NewInvalidInputError("Invalid resource references for ListJobs. Got %+v", request.ResourceReferenceKey)
+	if filterContext.ReferenceKey != nil {
+		switch filterContext.ReferenceKey.Type {
+		case model.NamespaceResourceType:
+			namespace = filterContext.ReferenceKey.ID
+		case model.ExperimentResourceType:
+			experimentId = filterContext.ReferenceKey.ID
 		}
 	}
 
-	jobs, total_size, nextPageToken, err := s.resourceManager.ListJobs(filterContext, opts)
+	opts, err := validatedListOptions(&model.Job{}, r.GetPageToken(), int(r.GetPageSize()), r.GetSortBy(), r.GetFilter(), "v1beta1")
 	if err != nil {
-		return nil, util.Wrap(err, "Failed to list jobs.")
+		return nil, util.Wrap(err, "Failed to list jobs due to error parsing the listing options")
 	}
-	return &api.ListJobsResponse{Jobs: ToApiJobs(jobs), TotalSize: int32(total_size), NextPageToken: nextPageToken}, nil
+
+	jobs, total_size, nextPageToken, err := s.listJobs(ctx, r.GetPageToken(), int(r.GetPageSize()), r.GetSortBy(), opts, namespace, experimentId)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to list jobs")
+	}
+	apiJobs := toApiJobsV1(jobs)
+	if apiJobs == nil {
+		return nil, util.NewInternalServerError(util.NewInvalidInputError("Failed to convert internal recurring run representations to their v1beta1 API counterparts"), "Failed to list v1beta1 recurring runs")
+	}
+	return &apiv1beta1.ListJobsResponse{
+		Jobs:          apiJobs,
+		TotalSize:     int32(total_size),
+		NextPageToken: nextPageToken,
+	}, nil
 }
 
-func (s *JobServer) EnableJob(ctx context.Context, request *api.EnableJobRequest) (*empty.Empty, error) {
+func (s *JobServer) EnableJob(ctx context.Context, request *apiv1beta1.EnableJobRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		enableJobRequests.Inc()
 	}
-
-	err := s.canAccessJob(ctx, request.Id, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbEnable})
+	err := s.enableJob(ctx, request.GetId())
 	if err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
+		return nil, util.Wrap(err, "Failed to enable a v1beta1 recurring run")
 	}
-
-	return s.enableJob(ctx, request.Id, true)
+	return &empty.Empty{}, nil
 }
 
-func (s *JobServer) DisableJob(ctx context.Context, request *api.DisableJobRequest) (*empty.Empty, error) {
+func (s *JobServer) disableJob(ctx context.Context, jobId string) error {
+	err := s.canAccessJob(ctx, jobId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDisable})
+	if err != nil {
+		return util.Wrap(err, "Failed to authorize the request")
+	}
+	return s.resourceManager.ChangeJobMode(ctx, jobId, false)
+}
+
+func (s *JobServer) DisableJob(ctx context.Context, request *apiv1beta1.DisableJobRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		disableJobRequests.Inc()
 	}
 
-	err := s.canAccessJob(ctx, request.Id, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDisable})
+	err := s.disableJob(ctx, request.GetId())
 	if err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
+		return nil, util.Wrap(err, "Failed to disable a v1beta1 recurring run")
 	}
-
-	return s.enableJob(ctx, request.Id, false)
+	return &empty.Empty{}, nil
 }
 
-func (s *JobServer) DeleteJob(ctx context.Context, request *api.DeleteJobRequest) (*empty.Empty, error) {
+func (s *JobServer) deleteJob(ctx context.Context, jobId string) error {
+	err := s.canAccessJob(ctx, jobId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDelete})
+	if err != nil {
+		return util.Wrap(err, "Failed to authorize the request")
+	}
+
+	return s.resourceManager.DeleteJob(ctx, jobId)
+}
+
+func (s *JobServer) DeleteJob(ctx context.Context, request *apiv1beta1.DeleteJobRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		deleteJobRequests.Inc()
 	}
-
-	err := s.canAccessJob(ctx, request.Id, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDelete})
+	err := s.deleteJob(ctx, request.GetId())
 	if err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
+		return nil, util.Wrap(err, "Failed to disable a recurring run")
 	}
-
-	err = s.resourceManager.DeleteJob(ctx, request.Id)
-	if err != nil {
-		return nil, err
-	}
-
 	if s.options.CollectMetrics {
 		jobCount.Dec()
 	}
 	return &empty.Empty{}, nil
 }
 
-func (s *JobServer) validateCreateJobRequest(request *api.CreateJobRequest) error {
-	job := request.Job
-
-	if err := ValidatePipelineSpecAndResourceReferences(s.resourceManager, job.PipelineSpec, job.ResourceReferences); err != nil {
-		return err
+func (s *JobServer) enableJob(ctx context.Context, jobId string) error {
+	err := s.canAccessJob(ctx, jobId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbEnable})
+	if err != nil {
+		return util.Wrap(err, "Failed to authorize the request")
 	}
-	if job.MaxConcurrency > 10 || job.MaxConcurrency < 1 {
-		return util.NewInvalidInputError("The max concurrency of the job is out of range. Support 1-10. Received %v.", job.MaxConcurrency)
-	}
-	if job.Trigger != nil && job.Trigger.GetCronSchedule() != nil {
-		if _, err := cron.Parse(job.Trigger.GetCronSchedule().Cron); err != nil {
-			return util.NewInvalidInputError(
-				"Schedule cron is not a supported format(https://godoc.org/github.com/robfig/cron). Error: %v", err)
-		}
-	}
-	if job.Trigger != nil && job.Trigger.GetPeriodicSchedule() != nil {
-		periodicScheduleInterval := job.Trigger.GetPeriodicSchedule().IntervalSecond
-		if periodicScheduleInterval < 1 {
-			return util.NewInvalidInputError(
-				"Found invalid period schedule interval %v. Set at interval to least 1 second.", periodicScheduleInterval)
-		}
-	}
-	return nil
+	return s.resourceManager.ChangeJobMode(ctx, jobId, true)
 }
 
-func (s *JobServer) enableJob(ctx context.Context, id string, enabled bool) (*empty.Empty, error) {
+func (s *JobServer) CreateRecurringRun(ctx context.Context, request *apiv2beta1.CreateRecurringRunRequest) (*apiv2beta1.RecurringRun, error) {
+	if s.options.CollectMetrics {
+		createJobRequests.Inc()
+	}
+
+	modelJob, err := toModelJob(request.GetRecurringRun())
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create a recurring run due to conversion error")
+	}
+	newRecurringRun, err := s.createJob(ctx, modelJob)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create a recurring run")
+	}
+
+	if s.options.CollectMetrics {
+		jobCount.Inc()
+	}
+	apiRecurringRun := toApiRecurringRun(newRecurringRun)
+	if apiRecurringRun == nil {
+		return nil, util.NewInternalServerError(util.NewInvalidInputError("Failed to convert internal recurring run representation to its API counterpart"), "Failed to create a recurring run")
+	}
+
+	return apiRecurringRun, nil
+}
+
+func (s *JobServer) GetRecurringRun(ctx context.Context, request *apiv2beta1.GetRecurringRunRequest) (*apiv2beta1.RecurringRun, error) {
+	if s.options.CollectMetrics {
+		getJobRequests.Inc()
+	}
+	recurringRun, err := s.getJob(ctx, request.GetRecurringRunId())
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to fetch a recurring run")
+	}
+
+	apiRecurringRun := toApiRecurringRun(recurringRun)
+	if apiRecurringRun == nil {
+		return nil, util.NewInternalServerError(util.NewInvalidInputError("Failed to convert internal recurring run representation to its API counterpart"), "Failed to fetch a recurring run")
+	}
+
+	return apiRecurringRun, nil
+}
+
+func (s *JobServer) ListRecurringRuns(ctx context.Context, r *apiv2beta1.ListRecurringRunsRequest) (*apiv2beta1.ListRecurringRunsResponse, error) {
+	if s.options.CollectMetrics {
+		listJobRequests.Inc()
+	}
+
+	opts, err := validatedListOptions(&model.Job{}, r.GetPageToken(), int(r.GetPageSize()), r.GetSortBy(), r.GetFilter(), "v2beta1")
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to list recurring runs due to error parsing the listing options")
+	}
+
+	jobs, total_size, nextPageToken, err := s.listJobs(ctx, r.GetPageToken(), int(r.GetPageSize()), r.GetSortBy(), opts, r.GetNamespace(), r.GetExperimentId())
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to list jobs")
+	}
+	apiRecurringRuns := toApiRecurringRuns(jobs)
+	if apiRecurringRuns == nil {
+		return nil, util.NewInternalServerError(util.NewInvalidInputError("Failed to convert internal recurring run representations to their API counterparts"), "Failed to list recurring runs")
+	}
+	return &apiv2beta1.ListRecurringRunsResponse{
+		RecurringRuns: apiRecurringRuns,
+		TotalSize:     int32(total_size),
+		NextPageToken: nextPageToken,
+	}, nil
+}
+
+func (s *JobServer) EnableRecurringRun(ctx context.Context, request *apiv2beta1.EnableRecurringRunRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		enableJobRequests.Inc()
 	}
-
-	err := s.resourceManager.EnableJob(ctx, id, enabled)
+	err := s.enableJob(ctx, request.GetRecurringRunId())
 	if err != nil {
-		return nil, err
+		return nil, util.Wrap(err, "Failed to enable a recurring run")
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *JobServer) DisableRecurringRun(ctx context.Context, request *apiv2beta1.DisableRecurringRunRequest) (*empty.Empty, error) {
+	if s.options.CollectMetrics {
+		disableJobRequests.Inc()
+	}
+
+	err := s.disableJob(ctx, request.GetRecurringRunId())
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to disable a recurring run")
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *JobServer) DeleteRecurringRun(ctx context.Context, request *apiv2beta1.DeleteRecurringRunRequest) (*empty.Empty, error) {
+	if s.options.CollectMetrics {
+		deleteJobRequests.Inc()
+	}
+	err := s.deleteJob(ctx, request.GetRecurringRunId())
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to disable a recurring run")
+	}
+	if s.options.CollectMetrics {
+		jobCount.Dec()
 	}
 	return &empty.Empty{}, nil
 }
 
 func (s *JobServer) canAccessJob(ctx context.Context, jobID string, resourceAttributes *authorizationv1.ResourceAttributes) error {
-	if common.IsMultiUserMode() == false {
+	if !common.IsMultiUserMode() {
 		// Skip authorization if not multi-user mode.
 		return nil
 	}
-
-	if len(jobID) > 0 {
+	if jobID != "" {
 		job, err := s.resourceManager.GetJob(jobID)
 		if err != nil {
-			return util.Wrap(err, "Failed to authorize with the job ID.")
+			return util.Wrap(err, "failed to authorize with the recurring run ID")
 		}
-		if len(resourceAttributes.Namespace) == 0 {
-			if len(job.Namespace) == 0 {
-				return util.NewInternalServerError(
-					errors.New("Empty namespace"),
-					"The job doesn't have a valid namespace.",
-				)
+		if s.resourceManager.IsEmptyNamespace(job.Namespace) {
+			experiment, err := s.resourceManager.GetExperiment(job.ExperimentId)
+			if err != nil {
+				return util.NewInternalServerError(err, "recurring run %v has an empty namespace and the parent experiment %v could not be fetched", jobID, job.ExperimentId)
 			}
+			resourceAttributes.Namespace = experiment.Namespace
+		} else {
 			resourceAttributes.Namespace = job.Namespace
 		}
-		if len(resourceAttributes.Name) == 0 {
-			resourceAttributes.Name = job.Name
+		if resourceAttributes.Name == "" {
+			resourceAttributes.Name = job.DisplayName
 		}
 	}
-
+	if s.resourceManager.IsEmptyNamespace(resourceAttributes.Namespace) {
+		return util.NewInvalidInputError("a recurring run cannot have an empty namespace in multi-user mode")
+	}
 	resourceAttributes.Group = common.RbacPipelinesGroup
 	resourceAttributes.Version = common.RbacPipelinesVersion
 	resourceAttributes.Resource = common.RbacResourceTypeJobs
 
-	err := isAuthorized(s.resourceManager, ctx, resourceAttributes)
+	err := s.resourceManager.IsAuthorized(ctx, resourceAttributes)
 	if err != nil {
-		return util.Wrap(err, "Failed to authorize with API resource references")
+		return util.Wrap(err, "failed to authorize with API")
 	}
 	return nil
 }

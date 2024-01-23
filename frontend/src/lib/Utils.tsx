@@ -14,19 +14,22 @@
  * limitations under the License.
  */
 
-import * as React from 'react';
-import * as zlib from 'zlib';
-import { ApiRun } from '../apis/run';
-import { ApiTrigger } from '../apis/job';
-import { Workflow } from '../../third_party/argo-ui/argo_template';
 import { isFunction } from 'lodash';
-import { hasFinished, NodePhase } from './StatusUtils';
-import { ListRequest, Apis } from './Apis';
-import { Row, Column, ExpandState } from '../components/CustomTable';
-import { padding } from '../Css';
+import * as pako from 'pako';
+import * as React from 'react';
 import { classes } from 'typestyle';
-import { CustomTableRow, css } from '../components/CustomTableRow';
+import { Workflow } from 'src/third_party/mlmd/argo_template';
+import { ApiTrigger } from 'src/apis/job';
+import { V2beta1RecurringRunStatus, V2beta1Trigger } from 'src/apisv2beta1/recurringrun';
+import { ApiRun } from 'src/apis/run';
+import { Column, ExpandState, Row } from 'src/components/CustomTable';
+import { css, CustomTableRow } from 'src/components/CustomTableRow';
+import { padding } from 'src/Css';
+import { Apis, ListRequest } from './Apis';
+import { hasFinished, hasFinishedV2, NodePhase } from './StatusUtils';
 import { StorageService } from './WorkflowParser';
+import { ApiParameter } from 'src/apis/pipeline';
+import { V2beta1Run } from 'src/apisv2beta1/run';
 
 export const logger = {
   error: (...args: any[]) => {
@@ -90,6 +93,25 @@ export function enabledDisplayString(trigger: ApiTrigger | undefined, enabled: b
   return '-';
 }
 
+export function enabledDisplayStringV2(
+  trigger: V2beta1Trigger | undefined,
+  status: V2beta1RecurringRunStatus,
+): string {
+  if (trigger) {
+    switch (status) {
+      case V2beta1RecurringRunStatus.ENABLED:
+        return 'Yes';
+      case V2beta1RecurringRunStatus.DISABLED:
+        return 'No';
+      case V2beta1RecurringRunStatus.STATUSUNSPECIFIED:
+        return 'Unknown';
+      default:
+        return '-';
+    }
+  }
+  return '-';
+}
+
 function getDuration(start: Date, end: Date): string {
   let diff = end.getTime() - start.getTime();
   const sign = diff < 0 ? '-' : '';
@@ -106,6 +128,7 @@ function getDuration(start: Date, end: Date): string {
   return `${sign}${hours}:${minutes}:${seconds}`;
 }
 
+// TODO(jlyaoyuli): remove this after v2 API integration.
 export function getRunDuration(run?: ApiRun): string {
   if (!run || !run.created_at || !run.finished_at || !hasFinished(run.status as NodePhase)) {
     return '-';
@@ -117,12 +140,32 @@ export function getRunDuration(run?: ApiRun): string {
   return getDuration(new Date(run.created_at), new Date(run.finished_at));
 }
 
+export function getRunDurationV2(run?: V2beta1Run): string {
+  return !run || !run.created_at || !run.finished_at || !hasFinishedV2(run.state)
+    ? '-'
+    : getDuration(new Date(run.created_at), new Date(run.finished_at));
+}
+
 export function getRunDurationFromWorkflow(workflow?: Workflow): string {
   if (!workflow || !workflow.status || !workflow.status.startedAt || !workflow.status.finishedAt) {
     return '-';
   }
 
   return getDuration(new Date(workflow.status.startedAt), new Date(workflow.status.finishedAt));
+}
+
+export function getRunDurationFromApiRun(apiRun?: ApiRun): string {
+  if (!apiRun || !apiRun.created_at || !apiRun.finished_at) {
+    return '-';
+  }
+
+  return getDuration(new Date(apiRun.created_at), new Date(apiRun.finished_at));
+}
+
+export function getRunDurationFromRunV2(run?: V2beta1Run): string {
+  return run && run.created_at && run.finished_at
+    ? getDuration(new Date(run.created_at), new Date(run.finished_at))
+    : '-';
 }
 
 /**
@@ -380,17 +423,68 @@ export function buildQuery(queriesMap: { [key: string]: string | number | undefi
 
 export async function decodeCompressedNodes(compressedNodes: string): Promise<object> {
   return new Promise<object>((resolve, reject) => {
-    const compressedBuffer = Buffer.from(compressedNodes, 'base64');
-    zlib.gunzip(compressedBuffer, (error, result: Buffer) => {
-      if (error) {
-        const gz_error_msg = `failed to gunzip data ${error}`;
-        logger.error(gz_error_msg);
-        reject(gz_error_msg);
-      } else {
-        const nodesStr = result.toString('utf8');
-        const nodes = JSON.parse(nodesStr);
-        resolve(nodes);
-      }
-    });
+    const compressedBuffer = Uint8Array.from(
+      atob(compressedNodes)
+        .split('')
+        .map(char => char.charCodeAt(0)),
+    );
+    try {
+      const result = pako.ungzip(compressedBuffer, { to: 'string' });
+      const nodes = JSON.parse(result);
+      resolve(nodes);
+    } catch (error) {
+      const gz_error_msg = `failed to ungzip data: ${error}`;
+      logger.error(gz_error_msg);
+      reject(gz_error_msg);
+    }
+  });
+}
+
+export function isSafari(): boolean {
+  // Since react-ace Editor doesn't support in Safari when height or width is a percentage.
+  // Fix the Yaml file cannot display issue via defining “width/height” does not not take percentage if it's Safari browser.
+  // The code of detecting wether isSafari is from: https://stackoverflow.com/questions/9847580/how-to-detect-safari-chrome-ie-firefox-and-opera-browser/9851769#9851769
+  const isSafari =
+    /constructor/i.test(window.HTMLElement.toString()) ||
+    (function(p) {
+      return p.toString() === '[object SafariRemoteNotification]';
+    })(!window['safari'] || (typeof 'safari' !== 'undefined' && window['safari'].pushNotification));
+  return isSafari;
+}
+
+// For any String value Enum, use this approach to get the string of Enum Key.
+export function getStringEnumKey(e: { [s: string]: any }, value: any): string {
+  return Object.keys(e)[Object.values(e).indexOf(value)];
+}
+
+export function generateRandomString(length: number): string {
+  let d = 0;
+  function randomChar(): string {
+    const r = Math.trunc((d + Math.random() * 16) % 16);
+    d = Math.floor(d / 16);
+    return r.toString(16);
+  }
+  let str = '';
+  for (let i = 0; i < length; ++i) {
+    str += randomChar();
+  }
+  return str;
+}
+
+export function mergeApiParametersByNames(
+  mainParams: ApiParameter[],
+  extraParams: ApiParameter[],
+): ApiParameter[] {
+  const extraParamsDict = Object.fromEntries(extraParams.map(param => [param.name, param.value]));
+
+  return mainParams.map(param => {
+    if (param.name === undefined || !(param.name in extraParamsDict)) {
+      return { ...param };
+    }
+
+    return {
+      ...param,
+      value: extraParamsDict[param.name],
+    };
   });
 }

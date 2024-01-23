@@ -57,7 +57,7 @@ func (tra *TokenReviewAuthenticator) GetUserIdentity(ctx context.Context) (strin
 	return userInfo.Username, err
 }
 
-// ensureAudience makes sure all audience of the authenticator is found in the provided audience list
+// ensureAudience makes sure all audience of the authenticator is found in the provided audience list.
 func (tra *TokenReviewAuthenticator) ensureAudience(audience []string) bool {
 	// Create a set (map) to check fast whether something is part of the list
 	audienceSet := make(map[string]struct{}, len(audience))
@@ -92,7 +92,8 @@ func (tra *TokenReviewAuthenticator) doTokenReview(ctx context.Context, userIden
 	if !review.Status.Authenticated {
 		return nil, util.NewUnauthenticatedError(
 			errors.New("Failed to authenticate token review"),
-			"Review.Status.Authenticated is false",
+			"Review.Status.Authenticated is false. Error %s",
+			review.Status.Error,
 		)
 	}
 	if !tra.ensureAudience(review.Status.Audiences) {

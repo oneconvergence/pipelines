@@ -20,7 +20,7 @@ import {
   ExecutionCustomProperties,
   ExecutionProperties,
 } from './Api';
-import { ArtifactTypeMap } from './LineageApi';
+import { ArtifactTypeMap, ExecutionTypeMap } from './LineageApi';
 import { Artifact, Execution, Value } from 'src/third_party/mlmd';
 import { LineageTypedResource } from './LineageTypes';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
@@ -93,6 +93,12 @@ export function getTypeName(typeId: number, artifactTypes: ArtifactTypeMap): str
     : String(typeId);
 }
 
+export function getExecutionTypeName(typeId: number, executionTypes: ExecutionTypeMap): string {
+  return executionTypes && executionTypes.get(typeId!)
+    ? executionTypes.get(typeId!)!.getName()
+    : String(typeId);
+}
+
 export function getMetadataValue(value?: Value): string | number | Struct | undefined {
   if (!value) {
     return '';
@@ -110,4 +116,5 @@ export function getMetadataValue(value?: Value): string | number | Struct | unde
     case Value.ValueCase.VALUE_NOT_SET:
       return '';
   }
+  return '';
 }

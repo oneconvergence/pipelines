@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ml_pipelines;
 
-import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/rpc/status.proto";
 
@@ -27,16 +27,19 @@ message PipelineJob {
 
   // The runtime config of a PipelineJob.
   message RuntimeConfig {
-    // The runtime parameters of the PipelineJob. The parameters will be
-    // passed into [PipelineJob.pipeline_spec][] to replace the placeholders
-    // at runtime.
-    map<string, Value> parameters = 1;
+    // Deprecated. Use [RuntimeConfig.parameter_values][] instead.
+    map<string, Value> parameters = 1 [deprecated = true];
 
     // A path in a Cloud Storage bucket which will be treated as the root
     // output directory of the pipeline. It is used by the system to
     // generate the paths of output artifacts.
     // This is a GCP-specific optimization.
     string gcs_output_directory = 2;
+
+    // The runtime parameters of the PipelineJob. The parameters will be
+    // passed into [PipelineJob.pipeline_spec][] to replace the placeholders
+    // at runtime.
+    map<string, google.protobuf.Value> parameter_values = 3;
   }
 
   // Runtime config of the pipeline.
@@ -74,6 +77,9 @@ message PipelineSpec {
   // The definition of the main pipeline.  Execution of the pipeline is
   // completed upon the completion of this component.
   ComponentSpec root = 9;
+
+  // Optional field. The default root output directory of the pipeline.
+  string default_pipeline_root = 10;
 }
 
 // Definition of a component.
@@ -170,10 +176,49 @@ message ComponentInputsSpec {
   // Definition of an artifact input.
   message ArtifactSpec {
     ArtifactTypeSchema artifact_type = 1;
+
+    // Indicates whether input is a single artifact or list of artifacts
+    bool is_artifact_list = 2;
+
+    // Whether this input artifact is optional or not.
+    // - If required, the artifact must be able to resolve to an artifact
+    // at runtime.
+    // - If it's optional, it can be missing from the
+    // PipelineTaskInputsSpec.InputArtifactSpec (if it's instantiated into a
+    // task), or can be missing from the runtimeArtifact (if it's the root
+    // component).
+    bool is_optional = 3;
+
+    // The description for this input artifact of the component.
+    // Should not exceed 1024 characters.
+    string description = 4;
   }
   // Definition of a parameter input.
   message ParameterSpec {
-    PrimitiveType.PrimitiveTypeEnum type = 1;
+    // Specifies an input parameter's type.
+    // Deprecated. Use [ParameterSpec.parameter_type][] instead.
+    PrimitiveType.PrimitiveTypeEnum type = 1 [deprecated = true];
+
+    // Specifies an input parameter's type.
+    ParameterType.ParameterTypeEnum parameter_type = 2;
+
+    // Optional field. Default value of the input parameter.
+    google.protobuf.Value default_value = 3;
+
+    // Whether this input parameter is optional or not.
+    // - If required, the parameter should either have a default value, or have
+    // to be able to resolve to a concrete value at runtime.
+    // - If it's optional, it can be missing from the
+    // PipelineTaskInputsSpec.InputParameterSpec (if it's instantiated into a
+    // task), or can be missing from the runtimeParameter (if it's the root
+    // component). If the value is missing, the default_value will be used. Or
+    // if default_value is not provided, the default value of the parameter's
+    // type will be used.
+    bool is_optional = 4;
+
+    // The description for this input parameter of the component.
+    // Should not exceed 1024 characters.
+    string description = 5;
   }
   // Name to artifact input.
   map<string, ArtifactSpec> artifacts = 1;
@@ -193,10 +238,26 @@ message ComponentOutputsSpec {
         [deprecated = true];
     // Properties of the Artifact.
     google.protobuf.Struct metadata = 4;
+
+    // Indicates whether output is a single artifact or list of artifacts
+    bool is_artifact_list = 5;
+
+    // The description for this output artifact of the component.
+    // Should not exceed 1024 characters.
+    string description = 6;
   }
   // Definition of a parameter output.
   message ParameterSpec {
-    PrimitiveType.PrimitiveTypeEnum type = 1;
+    // Specifies an input parameter's type.
+    // Deprecated. Use [ParameterSpec.parameter_type][] instead.
+    PrimitiveType.PrimitiveTypeEnum type = 1 [deprecated = true];
+
+    // Specifies an output parameter's type.
+    ParameterType.ParameterTypeEnum parameter_type = 2;
+
+    // The description for this output parameter of the component.
+    // Should not exceed 1024 characters.
+    string description = 3;
   }
   // Name to artifact output.
   map<string, ArtifactSpec> artifacts = 1;
@@ -334,12 +395,51 @@ message TaskOutputsSpec {
 // Represent primitive types. The wrapper is needed to give a namespace of
 // enum value so we don't need add `PRIMITIVE_TYPE_` prefix of each enum value.
 message PrimitiveType {
+  option deprecated = true;
+
   // The primitive types.
+  // Deprecated. Use [ParameterType.ParameterTypeEnum][] instead.
   enum PrimitiveTypeEnum {
+    option deprecated = true;
+
     PRIMITIVE_TYPE_UNSPECIFIED = 0;
     INT = 1;
     DOUBLE = 2;
     STRING = 3;
+  }
+}
+
+// Represent parameter types. The wrapper is needed to give a namespace of
+// enum value so we don't need add `PARAMETER_TYPE_` prefix of each enum value.
+message ParameterType {
+  // The parameter types.
+  enum ParameterTypeEnum {
+    // Indicates that the parameter type was not specified.
+    PARAMETER_TYPE_ENUM_UNSPECIFIED = 0;
+    // Indicates that a parameter is a number that is stored in a field of type
+    // `double`.
+    NUMBER_DOUBLE = 1;
+    // Indicates that a parameter is an integer stored in the `number_field`,
+    // which is of type `double`. NUMBER_INTEGER values must be within the range
+    // of JavaScript safe integers (-(2^53 - 1) to (2^53 - 1)). If you need to
+    // support integers outside the range of JavaScript safe integers, use the
+    // `STRING` parameter type to describe your parameter.
+    NUMBER_INTEGER = 2;
+    // Indicates that a parameter is a string.
+    STRING = 3;
+    // Indicates that a parameters is a boolean value.
+    BOOLEAN = 4;
+    // Indicates that a parameter is a list of values. LIST parameters are
+    // serialized to JSON when passed as an input or output of a pipeline step.
+    LIST = 5;
+    // Indicates that a parameter is a struct value; structs represent a data
+    // structure like a Python dictionary or a JSON object. STRUCT parameters
+    // are serialized to JSON when passed as an input or output of a pipeline
+    // step.
+    STRUCT = 6;
+    // Indicates that a parameter is a TaskFinalStatus type; these types can only accept inputs
+    // specified by InputParameterSpec.task_final_status
+    TASK_FINAL_STATUS = 7;
   }
 }
 
@@ -397,7 +497,7 @@ message PipelineTaskSpec {
     // The trigger strategy of this task.  The `strategy` and `condition` are
     // in logic "AND", as a task will only be tested for the `condition` when
     // the `strategy` is meet.
-    // Unset or set to default value of TRIGGER_STATEGY_UNDEFINED behaves the
+    // Unset or set to default value of TRIGGER_STRATEGY_UNDEFINED behaves the
     // same as ALL_UPSTREAM_TASKS_SUCCEEDED.
     TriggerStrategy strategy = 2;
   }
@@ -429,6 +529,40 @@ message PipelineTaskSpec {
     // Iterator to iterate over a parameter input.
     ParameterIteratorSpec parameter_iterator = 10;
   }
+
+  // User-configured task-level retry.
+  message RetryPolicy {
+    // Number of retries before considering a task as failed. Set to 0 or
+    // unspecified to disallow retry."
+    int32 max_retry_count  = 1;
+
+    // The time interval between retries. Defaults to zero (an immediate retry).
+    google.protobuf.Duration backoff_duration = 2;
+
+    // The exponential backoff factor applied to backoff_duration. If
+    // unspecified, will default to 2.
+    double backoff_factor = 3;
+
+    // The maximum duration during which the task will be retried according to
+    // the backoff strategy. Max allowed is 1 hour - higher value will be capped
+    // to this limit. If unspecified, will set to 1 hour.
+    google.protobuf.Duration backoff_max_duration = 4;
+  }
+
+  // User-configured task-level retry.
+  // Applicable only to component tasks.
+  RetryPolicy retry_policy = 11;
+
+  // Iterator related settings.
+  message IteratorPolicy {
+    // The limit for the number of concurrent sub-tasks spawned by an iterator
+    // task. The value should be a non-negative integer. A value of 0 represents
+    // unconstrained parallelism.
+    int32 parallelism_limit = 1;
+  }
+
+  // Iterator related settings.
+  IteratorPolicy iterator_policy = 12;
 }
 
 // The spec of an artifact iterator. It supports fan-out a workflow from a list
@@ -484,6 +618,14 @@ message PipelineInfo {
   // Required field. The name of the pipeline.
   // The name will be used to create or find pipeline context in MLMD.
   string name = 1;
+  
+  // Optional fields. The readable display name for the pipeline template.
+  // Should not exceed 1024 characters.
+  string display_name = 2;
+
+  // Optional fields. The readable description for the pipeline template.
+  // Should not exceed 1024 characters.
+  string description = 3;
 }
 
 // The definition of a artifact type in MLMD.
@@ -508,7 +650,7 @@ message ArtifactTypeSchema {
     // the properties of the type.
     string instance_schema = 3;
   }
-  
+
   // The schema version of the artifact. If the value is not set, it defaults
   // to the the latest version in the system.
   string schema_version = 4;
@@ -516,8 +658,7 @@ message ArtifactTypeSchema {
 
 // The basic info of a task.
 message PipelineTaskInfo {
-  // The unique name of the task within the pipeline definition. This name
-  // will be used in downstream tasks to indicate task and data dependencies.
+  // The display name of the task.
   string name = 1;
 }
 
@@ -528,9 +669,12 @@ message PipelineTaskInfo {
 message ValueOrRuntimeParameter {
   oneof value {
     // Constant value which is determined in compile time.
-    Value constant_value = 1;
+    // Deprecated. Use [ValueOrRuntimeParameter.constant][] instead.
+    Value constant_value = 1 [deprecated = true];
     // The runtime parameter refers to the parent component input parameter.
     string runtime_parameter = 2;
+    // Constant value which is determined in compile time.
+    google.protobuf.Value constant = 3;
   }
 }
 
@@ -584,6 +728,14 @@ message PipelineDeploymentConfig {
       // memory_limit RAM to run.
       double memory_limit = 2;
 
+      // The request of the number of vCPU cores. This container execution
+      // needs at least cpu_request vCPU to run.
+      double cpu_request = 5;
+
+      // The memory request in GB. This container execution needs at least
+      // memory_request RAM to run.
+      double memory_request = 6;
+
       // The specification on the accelerators being attached to this container.
       message AcceleratorConfig {
         // The type of accelerators.
@@ -592,9 +744,11 @@ message PipelineDeploymentConfig {
         int64 count = 2;
       }
       AcceleratorConfig accelerator = 3;
+      
+      reserved 4;
     }
     ResourceSpec resources = 5;
-    
+
     // Environment variables to be passed to the container.
     // Represents an environment variable present in a container.
     message EnvVar {
@@ -770,10 +924,14 @@ message ExecutorInput {
   // The runtime inputs data of the execution.
   message Inputs {
     // Input parameters of the execution.
-    map<string, Value> parameters = 1;
+    // Deprecated. Use [ExecutorInput.Inputs.parameter_values][] instead.
+    map<string, Value> parameters = 1 [deprecated = true];
 
     // Input artifacts of the execution.
     map<string, ArtifactList> artifacts = 2;
+
+    // Input parameters of the execution.
+    map<string, google.protobuf.Value> parameter_values = 3;
   }
 
   // The runtime input artifacts of the task invocation.
@@ -810,10 +968,14 @@ message ExecutorInput {
 // the output metadata file.
 message ExecutorOutput {
   // The values for output parameters.
-  map<string, Value> parameters = 1;
+  // Deprecated. Use [ExecutorOutput.parameter_values][] instead.
+  map<string, Value> parameters = 1 [deprecated = true];
 
   // The updated metadata for output artifact.
   map<string, ArtifactList> artifacts = 2;
+
+  // The values for output parameters.
+  map<string, google.protobuf.Value> parameter_values = 3;
 }
 
 // The final status of a task. The structure will be passed to input parameter
@@ -825,6 +987,19 @@ message PipelineTaskFinalStatus {
 
   // The error of the task.
   google.rpc.Status error = 2;
+
+  // The pipeline job unique id.
+  int64 pipeline_job_uuid = 3 [deprecated = true];
+
+  // The pipeline job name from the [PipelineJob.name][].
+  string pipeline_job_name = 4 [deprecated = true];
+
+  // The pipeline job resource name, in the format of
+  // `projects/{project}/locations/{location}/pipelineJobs/{pipeline_job}`.
+  string pipeline_job_resource_name = 5;
+
+  // The pipeline task that produces this status.
+  string pipeline_task_name = 6;
 }
 
 message PipelineStateEnum {
@@ -859,4 +1034,22 @@ message PipelineStateEnum {
     // [PipelineTaskSpec.TriggerPolicy.condition][].
     UNSCHEDULABLE = 13;
   }
+}
+
+// Spec for all platforms; second document in IR
+message PlatformSpec {
+  // Platform key to full platform config
+  map<string, SinglePlatformSpec> platforms = 1;
+}
+
+message SinglePlatformSpec {
+  // Mirrors PipelineSpec.deployment_spec structure
+  PlatformDeploymentConfig deployment_spec = 1;
+}
+
+
+message PlatformDeploymentConfig {
+  // Map of executor label to executor-level config
+  // Mirrors PipelineSpec.deployment_spec.executors structure
+  map<string, google.protobuf.Struct> executors = 1;
 }

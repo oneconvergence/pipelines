@@ -18,13 +18,16 @@ import { NodePhase } from './StatusUtils';
 import {
   decodeCompressedNodes,
   enabledDisplayString,
+  enabledDisplayStringV2,
   formatDateString,
   generateMinioArtifactUrl,
   generateS3ArtifactUrl,
   getRunDuration,
   getRunDurationFromWorkflow,
   logger,
+  mergeApiParametersByNames,
 } from './Utils';
+import { V2beta1RecurringRunStatus } from 'src/apisv2beta1/recurringrun';
 
 describe('Utils', () => {
   describe('log', () => {
@@ -79,6 +82,14 @@ describe('Utils', () => {
     it('handles a trigger according to the enabled flag', () => {
       expect(enabledDisplayString({}, true)).toBe('Yes');
       expect(enabledDisplayString({}, false)).toBe('No');
+    });
+
+    it('handles a trigger according to the enabled flag (v2)', () => {
+      expect(enabledDisplayStringV2({}, V2beta1RecurringRunStatus.ENABLED)).toBe('Yes');
+      expect(enabledDisplayStringV2({}, V2beta1RecurringRunStatus.DISABLED)).toBe('No');
+      expect(enabledDisplayStringV2({}, V2beta1RecurringRunStatus.STATUSUNSPECIFIED)).toBe(
+        'Unknown',
+      );
     });
   });
 
@@ -277,8 +288,50 @@ describe('Utils', () => {
     it('raise exception if failed to decompress data', async () => {
       let compressedNodes = 'I4sIAAAAAAACE6tWystPSS1WslKIrlxNBbLAQoZKOgpKmSlArmFtbC0A+U7xAicAAAA=';
       await expect(decodeCompressedNodes(compressedNodes)).rejects.toEqual(
-        'failed to gunzip data Error: incorrect header check',
+        'failed to ungzip data: incorrect header check',
       );
+    });
+  });
+
+  describe('mergeApiParametersByNames', () => {
+    it('empty main params', () => {
+      expect(
+        mergeApiParametersByNames([], [{ name: 'testParam1', value: 'overwrittenValue1' }]),
+      ).toEqual([]);
+    });
+
+    it('redundant params in extra', () => {
+      expect(
+        mergeApiParametersByNames(
+          [{ name: 'testParam1', value: 'value1' }],
+          [
+            { name: 'testParam1', value: 'overwrittenValue1' },
+            { name: 'testParam2', value: 'overwrittenValue2' },
+          ],
+        ),
+      ).toEqual([{ name: 'testParam1', value: 'overwrittenValue1' }]);
+    });
+    it('empty extra params', () => {
+      expect(mergeApiParametersByNames([{ name: 'testParam1', value: 'value1' }], [])).toEqual([
+        { name: 'testParam1', value: 'value1' },
+      ]);
+    });
+    it('different params', () => {
+      expect(
+        mergeApiParametersByNames(
+          [
+            { name: 'testParam1', value: 'value1' },
+            { name: 'testParam2', value: 'value2' },
+          ],
+          [
+            { name: 'testParam3', value: 'overwrittenValue3' },
+            { name: 'testParam4', value: 'overwrittenValue4' },
+          ],
+        ),
+      ).toEqual([
+        { name: 'testParam1', value: 'value1' },
+        { name: 'testParam2', value: 'value2' },
+      ]);
     });
   });
 });

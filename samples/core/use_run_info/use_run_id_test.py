@@ -13,17 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfp
+import kfp.deprecated as kfp
 from .use_run_id import pipeline_use_run_id
-from ...test.util import run_pipeline_func, TestCase
+from kfp.samples.test.utils import run_pipeline_func, TestCase
 
 run_pipeline_func([
     TestCase(
         pipeline_func=pipeline_use_run_id,
         mode=kfp.dsl.PipelineExecutionMode.V1_LEGACY,
-    ),
-    TestCase(
-        pipeline_func=pipeline_use_run_id,
-        mode=kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE,
     ),
 ])

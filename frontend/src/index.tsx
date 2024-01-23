@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+// import './CSSReset';
 import 'src/build/tailwind.output.css';
 import MuiThemeProvider from '@material-ui/core/styles/MuiThemeProvider';
 import * as React from 'react';
@@ -23,7 +24,6 @@ import { HashRouter } from 'react-router-dom';
 import { cssRule } from 'typestyle';
 import Router from './components/Router';
 import { fonts, theme } from './Css';
-import './CSSReset';
 import { initFeatures } from './features';
 import { Deployments, KFP_FLAGS } from './lib/Flags';
 import { GkeMetadataProvider } from './lib/GkeMetadata';
@@ -32,6 +32,7 @@ import {
   NamespaceContext,
   NamespaceContextProvider,
 } from './lib/KubeflowClient';
+import { BuildInfoProvider } from './lib/BuildInfo';
 // import { ReactQueryDevtools } from 'react-query/devtools';
 
 // TODO: license headers
@@ -56,11 +57,13 @@ export const queryClient = new QueryClient();
 const app = (
   <QueryClientProvider client={queryClient}>
     <MuiThemeProvider theme={theme}>
-      <GkeMetadataProvider>
-        <HashRouter>
-          <Router />
-        </HashRouter>
-      </GkeMetadataProvider>
+      <BuildInfoProvider>
+        <GkeMetadataProvider>
+          <HashRouter>
+            <Router />
+          </HashRouter>
+        </GkeMetadataProvider>
+      </BuildInfoProvider>
     </MuiThemeProvider>
     {/* <ReactQueryDevtools initialIsOpen={false} /> */}
   </QueryClientProvider>

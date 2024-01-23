@@ -18,7 +18,7 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-from pytorch_lightning.metrics import Accuracy
+from torchmetrics import Accuracy
 from sklearn.metrics import accuracy_score
 from torch import nn
 from transformers import AdamW, BertModel
@@ -119,9 +119,11 @@ class BertNewsClassifier(pl.LightningModule):  #pylint: disable=too-many-ancesto
              output - Type of news for the given news snippet
         """
         embedding_input = self.bert_model.embeddings(input_ids)
-        outputs = self.compute_bert_outputs(self.bert_model, embedding_input)
+        outputs = self.compute_bert_outputs(
+            self.bert_model, embedding_input, attention_mask
+        )
         pooled_output = outputs[1]
-        output = F.relu(self.fc1(pooled_output))
+        output = torch.tanh(self.fc1(pooled_output))
         output = self.drop(output)
         output = self.out(output)
         return output

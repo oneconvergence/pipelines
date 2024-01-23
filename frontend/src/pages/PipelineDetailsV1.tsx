@@ -25,10 +25,10 @@ import * as React from 'react';
 import { useState } from 'react';
 import { ApiPipeline, ApiPipelineVersion } from 'src/apis/pipeline';
 import { BannerProps } from 'src/components/Banner';
+import { PipelineSpecTabContent } from 'src/components/PipelineSpecTabContent';
 import { classes, stylesheet } from 'typestyle';
 import MD2Tabs from '../atoms/MD2Tabs';
 import { Description } from '../components/Description';
-import Editor from '../components/Editor';
 import Graph from '../components/Graph';
 import ReduceGraphSwitch from '../components/ReduceGraphSwitch';
 import SidePanel from '../components/SidePanel';
@@ -88,21 +88,21 @@ export interface PipelineDetailsV1Props {
   graph: dagre.graphlib.Graph | null;
   reducedGraph: dagre.graphlib.Graph | null;
   pipeline: ApiPipeline | null;
-  selectedVersion: ApiPipelineVersion | undefined;
-  versions: ApiPipelineVersion[];
   templateString?: string;
   updateBanner: (bannerProps: BannerProps) => void;
+  selectedVersion: ApiPipelineVersion | undefined;
+  versions: ApiPipelineVersion[];
   handleVersionSelected: (versionId: string) => Promise<void>;
 }
 
 const PipelineDetailsV1: React.FC<PipelineDetailsV1Props> = ({
   pipeline,
-  selectedVersion,
-  versions,
   graph,
   reducedGraph,
   templateString,
   updateBanner,
+  selectedVersion,
+  versions,
   handleVersionSelected,
 }: PipelineDetailsV1Props) => {
   const [selectedTab, setSelectedTab] = useState(0);
@@ -117,20 +117,6 @@ const PipelineDetailsV1: React.FC<PipelineDetailsV1Props> = ({
     if (!!selectedNodeId && !selectedNodeInfo) {
       logger.error(`Node with ID: ${selectedNodeId} was not found in the graph`);
     }
-  }
-
-  // Since react-ace Editor doesn't support in Safari when height or width is a percentage.
-  // Fix the Yaml file cannot display issue via defining “width/height” does not not take percentage if it's Safari browser.
-  // The code of detecting wether isSafari is from: https://stackoverflow.com/questions/9847580/how-to-detect-safari-chrome-ie-firefox-and-opera-browser/9851769#9851769
-  const isSafari =
-    /constructor/i.test(window.HTMLElement.toString()) ||
-    (function(p) {
-      return p.toString() === '[object SafariRemoteNotification]';
-    })(!window['safari'] || (typeof 'safari' !== 'undefined' && window['safari'].pushNotification));
-  let editorHeightWidth = '100%';
-
-  if (isSafari) {
-    editorHeightWidth = '640px';
   }
 
   const createVersionUrl = () => {
@@ -194,9 +180,27 @@ const PipelineDetailsV1: React.FC<PipelineDetailsV1Props> = ({
                       </React.Fragment>
                     )}
                     <div className={css.summaryKey}>Uploaded on</div>
-                    <div>{formatDateString(pipeline.created_at)}</div>
-                    <div className={css.summaryKey}>Description</div>
-                    <Description description={pipeline.description || ''} />
+                    <div>
+                      {selectedVersion
+                        ? formatDateString(selectedVersion.created_at)
+                        : formatDateString(pipeline.created_at)}
+                    </div>
+
+                    <div className={css.summaryKey}>Pipeline Description</div>
+                    <Description
+                      description={pipeline.description || 'empty pipeline description'}
+                    />
+
+                    {/* selectedVersion is always populated by either selected or pipeline default version if it exists */}
+                    {selectedVersion && selectedVersion.description ? (
+                      <>
+                        <div className={css.summaryKey}>
+                          {selectedVersion.id === pipeline.default_version?.id ? 'Default ' : null}
+                          Version Description
+                        </div>
+                        <Description description={selectedVersion.description} />
+                      </>
+                    ) : null}
                   </Paper>
                 )}
 
@@ -256,17 +260,7 @@ const PipelineDetailsV1: React.FC<PipelineDetailsV1Props> = ({
         )}
         {selectedTab === 1 && !!templateString && (
           <div className={css.containerCss} data-testid={'spec-yaml'}>
-            <Editor
-              value={templateString || ''}
-              height={editorHeightWidth}
-              width={editorHeightWidth}
-              mode='yaml'
-              theme='github'
-              editorProps={{ $blockScrolling: true }}
-              readOnly={true}
-              highlightActiveLine={true}
-              showGutter={true}
-            />
+            <PipelineSpecTabContent templateString={templateString || ''} />
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-FROM node:12.14.1 as build
+FROM node:14.21.3 as build
 
 ARG COMMIT_HASH
 ENV COMMIT_HASH=${COMMIT_HASH}
@@ -23,11 +23,9 @@ RUN mkdir -p ./server/dist && \
 
 # Generate the dependency licenses files (one for the UI and one for the webserver),
 # concatenate them to one file under ./src/server
-#RUN npm i -D license-checker
-#RUN node gen_licenses . && node gen_licenses server && \
-#    cat dependency-licenses.txt >> server/dependency-licenses.txt
+RUN ./scripts/yarn-licenses.sh
 
-FROM node:12.14.1-alpine
+FROM node:14.21.3-alpine3.17
 
 COPY --from=build ./src/frontend/server /server
 COPY --from=build ./src/frontend/build /client
@@ -35,6 +33,7 @@ COPY --from=build ./src/frontend/build /client
 WORKDIR /server
 
 EXPOSE 3000
+RUN npm ci
 RUN npm run build
 ENV API_SERVER_ADDRESS http://localhost:3001
 CMD node dist/server.js ../client/ 3000

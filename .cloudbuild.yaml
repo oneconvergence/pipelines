@@ -17,35 +17,20 @@
 
 steps:
 
-# Build the Python SDK
-- name: 'python:3-alpine'
-  entrypoint: '/bin/sh'
-  args: ['-c', 'cd /workspace/sdk/python/; python3 setup.py sdist --format=gztar; cp dist/*.tar.gz /workspace/kfp.tar.gz']
-  id:   'preparePythonSDK'
-  waitFor: ["-"]
-- name: 'gcr.io/cloud-builders/gsutil'
-  args: ['cp', '/workspace/kfp.tar.gz', 'gs://$PROJECT_ID/builds/$COMMIT_SHA/kfp.tar.gz']
-  id:   'copyPythonSDK'
-  waitFor: ['preparePythonSDK']
-- name: 'gcr.io/cloud-builders/gsutil'
-  args: ['cp', '/workspace/kfp.tar.gz', 'gs://$PROJECT_ID/builds/latest/kfp.tar.gz']
-  id:   'copyPythonSDKToLatest'
-  waitFor: ['preparePythonSDK']
-
-# Build the Python Component SDK
-- name: 'python:2-alpine'
-  entrypoint: '/bin/sh'
-  args: ['-c', 'cd /workspace/components/gcp/container/component_sdk/python;python setup.py sdist --format=gztar; cp dist/*.tar.gz /workspace/kfp-component.tar.gz']
-  id:   'preparePythonComponentSDK'
-  waitFor: ["-"]
-- name: 'gcr.io/cloud-builders/gsutil'
-  args: ['cp', '/workspace/kfp-component.tar.gz', 'gs://$PROJECT_ID/builds/$COMMIT_SHA/kfp-component.tar.gz']
-  id:   'copyPythonComponentSDK'
-  waitFor: ['preparePythonComponentSDK']
-- name: 'gcr.io/cloud-builders/gsutil'
-  args: ['cp', '/workspace/kfp-component.tar.gz', 'gs://$PROJECT_ID/builds/latest/kfp-component.tar.gz']
-  id:   'copyPythonComponentSDKToLatest'
-  waitFor: ['preparePythonComponentSDK']
+# # Build the Python SDK
+# - name: 'python:3-alpine'
+#   entrypoint: '/bin/sh'
+#   args: ['-c', 'cd /workspace/sdk/python/; python3 setup.py sdist --format=gztar; cp dist/*.tar.gz /workspace/kfp.tar.gz']
+#   id:   'preparePythonSDK'
+#   waitFor: ["-"]
+# - name: 'gcr.io/cloud-builders/gsutil'
+#   args: ['cp', '/workspace/kfp.tar.gz', 'gs://$PROJECT_ID/builds/$COMMIT_SHA/kfp.tar.gz']
+#   id:   'copyPythonSDK'
+#   waitFor: ['preparePythonSDK']
+# - name: 'gcr.io/cloud-builders/gsutil'
+#   args: ['cp', '/workspace/kfp.tar.gz', 'gs://$PROJECT_ID/builds/latest/kfp.tar.gz']
+#   id:   'copyPythonSDKToLatest'
+#   waitFor: ['preparePythonSDK']
 
 # Build the pipeline system images
 - name: 'gcr.io/cloud-builders/docker'
@@ -71,7 +56,7 @@ steps:
         --build-arg TAG_NAME="$(cat /workspace/VERSION)" \
         -f /workspace/backend/Dockerfile /workspace
   id:   'buildApiServer'
-  waitFor: ['copyPythonSDK']
+  waitFor: ['-']
 
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/scheduledworkflow:$COMMIT_SHA', '-f',
@@ -134,7 +119,7 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   entrypoint: '/bin/bash'
   args: ['-c', 'cd /workspace/components/kubeflow/launcher && ./build_image.sh -p $PROJECT_ID -t $COMMIT_SHA']
-  id: 'buildLauncher'
+  id: 'buildTFJobLauncher'
   waitFor: ["-"]
 - id: 'buildCpuTrainer'
   name: 'gcr.io/cloud-builders/docker'
@@ -145,13 +130,6 @@ steps:
   entrypoint: '/bin/bash'
   args: ['-c', 'cd /workspace/components/kubeflow/dnntrainer && ./build_image.sh -p $PROJECT_ID -t $COMMIT_SHA -l ml-pipeline-kubeflow-tf-trainer-gpu -b 2.3.0-gpu']
   id: 'buildGpuTrainer'
-  waitFor: ["-"]
-
-# Build the Generic GCP component image
-- name: 'gcr.io/cloud-builders/docker'
-  entrypoint: '/bin/bash'
-  args: ['-c', 'cd /workspace/components/gcp/container/ && ./build_image.sh -p $PROJECT_ID -t $COMMIT_SHA']
-  id: 'buildGcpGenericComponent'
   waitFor: ["-"]
 
 # Build the local pipeline component images
@@ -180,23 +158,56 @@ steps:
 # * manifests/kustomize/base/metadata/base/metadata-grpc-deployment.yaml
 # * test/tag_for_hosted.sh
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['pull', 'gcr.io/tfx-oss-public/ml_metadata_store_server:1.0.0']
+  args: ['pull', 'gcr.io/tfx-oss-public/ml_metadata_store_server:1.14.0']
   id:   'pullMetadataServer'
 - name: 'gcr.io/cloud-builders/docker'
   args: ['pull', 'gcr.io/ml-pipeline/minio:RELEASE.2019-08-14T20-37-41Z-license-compliance']
   id:   'pullMinio'
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['pull', 'gcr.io/ml-pipeline/mysql:5.7']
+  args: ['pull', 'gcr.io/ml-pipeline/mysql:8.0.26']
   id:   'pullMysql'
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['pull', 'gcr.io/cloudsql-docker/gce-proxy:1.14']
+  args: ['pull', 'gcr.io/cloudsql-docker/gce-proxy:1.25.0']
   id:   'pullCloudsqlProxy'
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['pull', 'gcr.io/ml-pipeline/argoexec:v3.1.6-patch-license-compliance']
+  args: ['pull', 'gcr.io/ml-pipeline/argoexec:v3.3.10-license-compliance']
   id:   'pullArgoExecutor'
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['pull', 'gcr.io/ml-pipeline/workflow-controller:v3.1.6-patch-license-compliance']
+  args: ['pull', 'gcr.io/ml-pipeline/workflow-controller:v3.3.10-license-compliance']
   id:   'pullArgoWorkflowController'
+
+# V2 related images
+# Prerequisite: Make sure ko image is available on the same project by running the following:
+# git clone https://github.com/GoogleCloudPlatform/cloud-builders-community.git
+# cd cloud-builders-community/ko
+# gcloud builds submit . --config=cloudbuild.yaml --project=$PROJECT_ID
+# Reference: https://dev.to/amammay/effective-go-on-gcp-lean-containers-with-ko-on-cloud-build-51ek
+
+# Temporarily disable v2 image build due to unblock kubeflow-pipeline-mkp-test
+# We aren't building v2 images for MKP at this moment anyway.
+#
+# - name: 'gcr.io/$PROJECT_ID/ko'
+#   entrypoint: /bin/sh
+#   args:
+#     - -c
+#     - |
+#       cd /workspace/backend/src/v2/
+#       /ko publish --bare ./cmd/launcher-v2 -t $COMMIT_SHA
+#   env:
+#   - 'KO_DOCKER_REPO=gcr.io/$PROJECT_ID/kfp-launcher'
+#   id:   'buildLauncher'
+#   waitFor: ["-"]
+# - name: 'gcr.io/$PROJECT_ID/ko'
+#   entrypoint: /bin/sh
+#   args:
+#     - -c
+#     - |
+#       cd /workspace/backend/src/v2/
+#       /ko publish --bare ./cmd/driver -t $COMMIT_SHA
+#   env:
+#   - 'KO_DOCKER_REPO=gcr.io/$PROJECT_ID/kfp-driver'
+#   id:   'buildDriver'
+#   waitFor: ["-"]
 
 # Tag for Hosted - SemVersion to Major.Minor parsing
 - id: "parseMajorMinorVersion"

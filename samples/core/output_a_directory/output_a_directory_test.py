@@ -12,27 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfp
+import kfp.deprecated as kfp
 from .output_a_directory import dir_pipeline, dir_pipeline_v2
-from ...test.util import run_pipeline_func, TestCase
+from kfp.samples.test.utils import run_pipeline_func, TestCase
 
 run_pipeline_func([
-    TestCase(
-        pipeline_func=dir_pipeline_v2,
-        mode=kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE,
-    ),
-    TestCase(
-        pipeline_func=dir_pipeline,
-        mode=kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE,
-    ),
-    TestCase(
-        pipeline_func=dir_pipeline_v2,
-        mode=kfp.dsl.PipelineExecutionMode.V2_ENGINE,
-    ),
-    TestCase(
-        pipeline_func=dir_pipeline,
-        mode=kfp.dsl.PipelineExecutionMode.V2_ENGINE,
-    ),
+    # Cannot test V2_ENGINE and V1_LEGACY using the same code.
+    # V2_ENGINE requires importing everything from v2 namespace.
+    # TestCase(
+    #     pipeline_func=dir_pipeline_v2,
+    #     mode=kfp.dsl.PipelineExecutionMode.V2_ENGINE,
+    # ),
+    # TestCase(
+    #     pipeline_func=dir_pipeline,
+    #     mode=kfp.dsl.PipelineExecutionMode.V2_ENGINE,
+    # ),
     TestCase(
         pipeline_func=dir_pipeline,
         mode=kfp.dsl.PipelineExecutionMode.V1_LEGACY,

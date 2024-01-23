@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';
-import NewPipelineVersion, { ImportMethod } from './NewPipelineVersion';
-import TestUtils from '../TestUtils';
+import { ImportMethod, NewPipelineVersion } from './NewPipelineVersion';
+import TestUtils from 'src/TestUtils';
 import { shallow, ShallowWrapper, ReactWrapper } from 'enzyme';
 import { PageProps } from './Page';
-import { Apis } from '../lib/Apis';
-import { RoutePage, QUERY_PARAMS } from '../components/Router';
-import { ApiResourceType } from '../apis/pipeline';
+import { Apis } from 'src/lib/Apis';
+import { RoutePage, QUERY_PARAMS } from 'src/components/Router';
 
 class TestNewPipelineVersion extends NewPipelineVersion {
   public _pipelineSelectorClosed = super._pipelineSelectorClosed;
@@ -44,35 +44,14 @@ describe('NewPipelineVersion', () => {
   let uploadPipelineSpy: jest.SpyInstance<{}>;
 
   let MOCK_PIPELINE = {
-    id: 'original-run-pipeline-id',
-    name: 'original mock pipeline name',
-    default_version: {
-      id: 'original-run-pipeline-version-id',
-      name: 'original mock pipeline version name',
-      resource_references: [
-        {
-          key: {
-            id: 'original-run-pipeline-id',
-            type: ApiResourceType.PIPELINE,
-          },
-          relationship: 1,
-        },
-      ],
-    },
+    pipeline_id: 'original-run-pipeline-id',
+    display_name: 'original mock pipeline name',
   };
 
   let MOCK_PIPELINE_VERSION = {
-    id: 'original-run-pipeline-version-id',
-    name: 'original mock pipeline version name',
-    resource_references: [
-      {
-        key: {
-          id: 'original-run-pipeline-id',
-          type: ApiResourceType.PIPELINE,
-        },
-        relationship: 1,
-      },
-    ],
+    pipeline_version_id: 'original-run-pipeline-version-id',
+    display_name: 'original mock pipeline version name',
+    description: 'original mock pipeline version description',
   };
 
   function generateProps(search?: string): PageProps {
@@ -83,7 +62,7 @@ describe('NewPipelineVersion', () => {
         search: search,
       } as any,
       match: '' as any,
-      toolbarProps: TestNewPipelineVersion.prototype.getInitialToolbarState(),
+      toolbarProps: {} as any,
       updateBanner: updateBannerSpy,
       updateDialog: updateDialogSpy,
       updateSnackbar: updateSnackbarSpy,
@@ -94,15 +73,17 @@ describe('NewPipelineVersion', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getPipelineSpy = jest
-      .spyOn(Apis.pipelineServiceApi, 'getPipeline')
+      .spyOn(Apis.pipelineServiceApiV2, 'getPipeline')
       .mockImplementation(() => MOCK_PIPELINE);
     createPipelineVersionSpy = jest
-      .spyOn(Apis.pipelineServiceApi, 'createPipelineVersion')
+      .spyOn(Apis.pipelineServiceApiV2, 'createPipelineVersion')
       .mockImplementation(() => MOCK_PIPELINE_VERSION);
     createPipelineSpy = jest
-      .spyOn(Apis.pipelineServiceApi, 'createPipeline')
+      .spyOn(Apis.pipelineServiceApiV2, 'createPipeline')
       .mockImplementation(() => MOCK_PIPELINE);
-    uploadPipelineSpy = jest.spyOn(Apis, 'uploadPipeline').mockImplementation(() => MOCK_PIPELINE);
+    uploadPipelineSpy = jest
+      .spyOn(Apis, 'uploadPipelineV2')
+      .mockImplementation(() => MOCK_PIPELINE);
   });
 
   afterEach(async () => {
@@ -137,7 +118,7 @@ describe('NewPipelineVersion', () => {
     it('creates pipeline version is default when landing from pipeline details page', () => {
       tree = shallow(
         <TestNewPipelineVersion
-          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.id}`)}
+          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.pipeline_id}`)}
         />,
       );
 
@@ -158,7 +139,7 @@ describe('NewPipelineVersion', () => {
     it('does not include any action buttons in the toolbar', async () => {
       tree = shallow(
         <TestNewPipelineVersion
-          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.id}`)}
+          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.pipeline_id}`)}
         />,
       );
       await TestUtils.flushPromises();
@@ -166,7 +147,7 @@ describe('NewPipelineVersion', () => {
       expect(updateToolbarSpy).toHaveBeenLastCalledWith({
         actions: {},
         breadcrumbs: [{ displayName: 'Pipeline Versions', href: '/pipeline_versions/new' }],
-        pageTitle: 'Upload Pipeline or Pipeline Version',
+        pageTitle: 'New Pipeline',
       });
       expect(getPipelineSpy).toHaveBeenCalledTimes(1);
     });
@@ -174,7 +155,7 @@ describe('NewPipelineVersion', () => {
     it('allows updating pipeline version name', async () => {
       tree = shallow(
         <TestNewPipelineVersion
-          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.id}`)}
+          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.pipeline_id}`)}
         />,
       );
       await TestUtils.flushPromises();
@@ -187,10 +168,26 @@ describe('NewPipelineVersion', () => {
       expect(getPipelineSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('allows updating pipeline version description', async () => {
+      tree = shallow(
+        <TestNewPipelineVersion
+          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.pipeline_id}`)}
+        />,
+      );
+      await TestUtils.flushPromises();
+
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineVersionDescription')({
+        target: { value: 'some description' },
+      });
+
+      expect(tree.state()).toHaveProperty('pipelineVersionDescription', 'some description');
+      expect(getPipelineSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('allows updating package url', async () => {
       tree = shallow(
         <TestNewPipelineVersion
-          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.id}`)}
+          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.pipeline_id}`)}
         />,
       );
       await TestUtils.flushPromises();
@@ -206,7 +203,7 @@ describe('NewPipelineVersion', () => {
     it('allows updating code source', async () => {
       tree = shallow(
         <TestNewPipelineVersion
-          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.id}`)}
+          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.pipeline_id}`)}
         />,
       );
       await TestUtils.flushPromises();
@@ -222,7 +219,7 @@ describe('NewPipelineVersion', () => {
     it("sends a request to create a version when 'Create' is clicked", async () => {
       tree = shallow(
         <TestNewPipelineVersion
-          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.id}`)}
+          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.pipeline_id}`)}
         />,
       );
       await TestUtils.flushPromises();
@@ -230,31 +227,28 @@ describe('NewPipelineVersion', () => {
       (tree.instance() as TestNewPipelineVersion).handleChange('pipelineVersionName')({
         target: { value: 'test version name' },
       });
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineVersionDescription')({
+        target: { value: 'some description' },
+      });
       (tree.instance() as TestNewPipelineVersion).handleChange('packageUrl')({
         target: { value: 'https://dummy_package_url' },
       });
+
       await TestUtils.flushPromises();
 
       tree.find('#createNewPipelineOrVersionBtn').simulate('click');
+
       // The APIs are called in a callback triggered by clicking 'Create', so we wait again
       await TestUtils.flushPromises();
 
       expect(createPipelineVersionSpy).toHaveBeenCalledTimes(1);
-      expect(createPipelineVersionSpy).toHaveBeenLastCalledWith({
-        code_source_url: '',
-        name: 'test version name',
+      expect(createPipelineVersionSpy).toHaveBeenLastCalledWith('original-run-pipeline-id', {
+        pipeline_id: 'original-run-pipeline-id',
+        display_name: 'test version name',
+        description: 'some description',
         package_url: {
           pipeline_url: 'https://dummy_package_url',
         },
-        resource_references: [
-          {
-            key: {
-              id: MOCK_PIPELINE.id,
-              type: ApiResourceType.PIPELINE,
-            },
-            relationship: 1,
-          },
-        ],
       });
     });
 
@@ -283,8 +277,10 @@ describe('NewPipelineVersion', () => {
       expect(tree.state('importMethod')).toBe(ImportMethod.URL);
     });
 
-    it('creates pipeline from url', async () => {
-      tree = shallow(<TestNewPipelineVersion {...generateProps()} />);
+    it('creates pipeline from url in single user mode', async () => {
+      tree = shallow(
+        <TestNewPipelineVersion {...generateProps()} buildInfo={{ apiServerMultiUser: false }} />,
+      );
 
       (tree.instance() as TestNewPipelineVersion).handleChange('pipelineName')({
         target: { value: 'test pipeline name' },
@@ -301,20 +297,86 @@ describe('NewPipelineVersion', () => {
       // The APIs are called in a callback triggered by clicking 'Create', so we wait again
       await TestUtils.flushPromises();
 
+      expect(tree.state()).toHaveProperty('isPrivate', false);
       expect(tree.state()).toHaveProperty('newPipeline', true);
       expect(tree.state()).toHaveProperty('importMethod', ImportMethod.URL);
       expect(createPipelineSpy).toHaveBeenCalledTimes(1);
       expect(createPipelineSpy).toHaveBeenLastCalledWith({
         description: 'test pipeline description',
-        name: 'test pipeline name',
-        url: {
-          pipeline_url: 'https://dummy_package_url',
-        },
+        display_name: 'test pipeline name',
       });
     });
 
-    it('creates pipeline from local file', async () => {
-      tree = shallow(<NewPipelineVersion {...generateProps()} />);
+    it('creates private pipeline from url in multi user mode', async () => {
+      tree = shallow(
+        <TestNewPipelineVersion
+          {...generateProps()}
+          namespace='ns'
+          buildInfo={{ apiServerMultiUser: true }}
+        />,
+      );
+
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineName')({
+        target: { value: 'test pipeline name' },
+      });
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineDescription')({
+        target: { value: 'test pipeline description' },
+      });
+      (tree.instance() as TestNewPipelineVersion).handleChange('packageUrl')({
+        target: { value: 'https://dummy_package_url' },
+      });
+      await TestUtils.flushPromises();
+      tree.find('#createNewPipelineOrVersionBtn').simulate('click');
+      await TestUtils.flushPromises();
+
+      expect(tree.state()).toHaveProperty('isPrivate', true);
+      expect(tree.state()).toHaveProperty('newPipeline', true);
+      expect(tree.state()).toHaveProperty('importMethod', ImportMethod.URL);
+      expect(createPipelineSpy).toHaveBeenCalledTimes(1);
+      expect(createPipelineSpy).toHaveBeenLastCalledWith({
+        description: 'test pipeline description',
+        display_name: 'test pipeline name',
+        namespace: 'ns',
+      });
+    });
+
+    it('creates shared pipeline from url in multi user mode', async () => {
+      tree = shallow(
+        <TestNewPipelineVersion
+          {...generateProps()}
+          namespace='ns'
+          buildInfo={{ apiServerMultiUser: true }}
+        />,
+      );
+
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineName')({
+        target: { value: 'test pipeline name' },
+      });
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineDescription')({
+        target: { value: 'test pipeline description' },
+      });
+      (tree.instance() as TestNewPipelineVersion).handleChange('packageUrl')({
+        target: { value: 'https://dummy_package_url' },
+      });
+      tree.setState({ isPrivate: false });
+      await TestUtils.flushPromises();
+      tree.find('#createNewPipelineOrVersionBtn').simulate('click');
+      await TestUtils.flushPromises();
+
+      expect(tree.state()).toHaveProperty('isPrivate', false);
+      expect(tree.state()).toHaveProperty('newPipeline', true);
+      expect(tree.state()).toHaveProperty('importMethod', ImportMethod.URL);
+      expect(createPipelineSpy).toHaveBeenCalledTimes(1);
+      expect(createPipelineSpy).toHaveBeenLastCalledWith({
+        description: 'test pipeline description',
+        display_name: 'test pipeline name',
+      });
+    });
+
+    it('creates pipeline from local file in single user mode', async () => {
+      tree = shallow(
+        <TestNewPipelineVersion {...generateProps()} buildInfo={{ apiServerMultiUser: false }} />,
+      );
 
       // Set local file, pipeline name, pipeline description and click create
       tree.find('#localPackageBtn').simulate('change');
@@ -331,13 +393,98 @@ describe('NewPipelineVersion', () => {
       tree.update();
       await TestUtils.flushPromises();
 
+      expect(tree.state()).toHaveProperty('isPrivate', false);
       expect(tree.state('importMethod')).toBe(ImportMethod.LOCAL);
+
       expect(uploadPipelineSpy).toHaveBeenLastCalledWith(
         'test pipeline name',
         'test pipeline description',
         file,
+        undefined,
       );
-      expect(createPipelineSpy).not.toHaveBeenCalled();
+    });
+
+    it('creates private pipeline from local file in multi user mode', async () => {
+      tree = shallow(
+        <TestNewPipelineVersion
+          {...generateProps()}
+          namespace='ns'
+          buildInfo={{ apiServerMultiUser: true }}
+        />,
+      );
+
+      // Set local file, pipeline name, pipeline description and click create
+      tree.find('#localPackageBtn').simulate('change');
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineName')({
+        target: { value: 'test pipeline name' },
+      });
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineDescription')({
+        target: { value: 'test pipeline description' },
+      });
+      const file = new File(['file contents'], 'file_name', { type: 'text/plain' });
+      (tree.instance() as TestNewPipelineVersion)._onDropForTest([file]);
+
+      tree.find('#createNewPipelineOrVersionBtn').simulate('click');
+
+      tree.update();
+      await TestUtils.flushPromises();
+
+      expect(tree.state()).toHaveProperty('isPrivate', true);
+      expect(tree.state('importMethod')).toBe(ImportMethod.LOCAL);
+
+      expect(uploadPipelineSpy).toHaveBeenLastCalledWith(
+        'test pipeline name',
+        'test pipeline description',
+        file,
+        'ns',
+      );
+    });
+
+    it('creates shared pipeline from local file in multi user mode', async () => {
+      tree = shallow(
+        <TestNewPipelineVersion
+          {...generateProps()}
+          namespace='ns'
+          buildInfo={{ apiServerMultiUser: true }}
+        />,
+      );
+
+      // Set local file, pipeline name, pipeline description and click create
+      tree.find('#localPackageBtn').simulate('change');
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineName')({
+        target: { value: 'test pipeline name' },
+      });
+      (tree.instance() as TestNewPipelineVersion).handleChange('pipelineDescription')({
+        target: { value: 'test pipeline description' },
+      });
+      const file = new File(['file contents'], 'file_name', { type: 'text/plain' });
+      (tree.instance() as TestNewPipelineVersion)._onDropForTest([file]);
+      tree.setState({ isPrivate: false });
+      tree.find('#createNewPipelineOrVersionBtn').simulate('click');
+
+      tree.update();
+      await TestUtils.flushPromises();
+
+      expect(tree.state()).toHaveProperty('isPrivate', false);
+      expect(tree.state('importMethod')).toBe(ImportMethod.LOCAL);
+
+      expect(uploadPipelineSpy).toHaveBeenLastCalledWith(
+        'test pipeline name',
+        'test pipeline description',
+        file,
+        undefined,
+      );
+    });
+
+    it('allows updating pipeline version name', async () => {
+      render(
+        <TestNewPipelineVersion
+          {...generateProps(`?${QUERY_PARAMS.pipelineId}=${MOCK_PIPELINE.pipeline_id}`)}
+        />,
+      );
+      const pipelineVersionNameInput = await screen.findByLabelText(/Pipeline Version name/);
+      fireEvent.change(pipelineVersionNameInput, { target: { value: 'new-pipeline-name' } });
+      expect(pipelineVersionNameInput.closest('input')?.value).toBe('new-pipeline-name');
     });
   });
 });

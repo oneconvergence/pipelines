@@ -13,11 +13,10 @@
 # limitations under the License.
 
 from kfp import components
-from kfp.v2 import dsl
-import kfp.v2.compiler as compiler
+from kfp import dsl
+from kfp import compiler
 
-component_op = components.load_component_from_text(
-    """
+component_op = components.load_component_from_text("""
 name: Print Text
 inputs:
 - {name: text, type: String}
@@ -31,8 +30,7 @@ implementation:
       set -e -x
       echo "$0"
     - {inputValue: text}
-"""
-)
+""")
 
 
 @dsl.pipeline(name='pipeline-with-after')
@@ -44,7 +42,4 @@ def my_pipeline():
 
 if __name__ == '__main__':
     compiler.Compiler().compile(
-        pipeline_func=my_pipeline,
-        pipeline_root='dummy_root',
-        output_path=__file__ + '.json'
-    )
+        pipeline_func=my_pipeline, output_path=__file__ + '.json')

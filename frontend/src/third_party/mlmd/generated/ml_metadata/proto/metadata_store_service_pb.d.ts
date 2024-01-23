@@ -1,5 +1,6 @@
 import * as jspb from 'google-protobuf'
 
+import * as google_protobuf_field_mask_pb from 'google-protobuf/google/protobuf/field_mask_pb';
 import * as ml_metadata_proto_metadata_store_pb from '../../ml_metadata/proto/metadata_store_pb';
 
 
@@ -119,6 +120,16 @@ export class PutArtifactsRequest extends jspb.Message {
   hasOptions(): boolean;
   clearOptions(): PutArtifactsRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutArtifactsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutArtifactsRequest;
+
+  getUpdateMask(): google_protobuf_field_mask_pb.FieldMask | undefined;
+  setUpdateMask(value?: google_protobuf_field_mask_pb.FieldMask): PutArtifactsRequest;
+  hasUpdateMask(): boolean;
+  clearUpdateMask(): PutArtifactsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutArtifactsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutArtifactsRequest): PutArtifactsRequest.AsObject;
@@ -131,6 +142,8 @@ export namespace PutArtifactsRequest {
   export type AsObject = {
     artifactsList: Array<ml_metadata_proto_metadata_store_pb.Artifact.AsObject>,
     options?: PutArtifactsRequest.Options.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+    updateMask?: google_protobuf_field_mask_pb.FieldMask.AsObject,
   }
 
   export class Options extends jspb.Message {
@@ -191,6 +204,11 @@ export class PutArtifactTypeRequest extends jspb.Message {
   getAllFieldsMatch(): boolean;
   setAllFieldsMatch(value: boolean): PutArtifactTypeRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutArtifactTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutArtifactTypeRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutArtifactTypeRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutArtifactTypeRequest): PutArtifactTypeRequest.AsObject;
@@ -206,6 +224,7 @@ export namespace PutArtifactTypeRequest {
     canOmitFields: boolean,
     canDeleteFields: boolean,
     allFieldsMatch: boolean,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -233,6 +252,16 @@ export class PutExecutionsRequest extends jspb.Message {
   clearExecutionsList(): PutExecutionsRequest;
   addExecutions(value?: ml_metadata_proto_metadata_store_pb.Execution, index?: number): ml_metadata_proto_metadata_store_pb.Execution;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutExecutionsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutExecutionsRequest;
+
+  getUpdateMask(): google_protobuf_field_mask_pb.FieldMask | undefined;
+  setUpdateMask(value?: google_protobuf_field_mask_pb.FieldMask): PutExecutionsRequest;
+  hasUpdateMask(): boolean;
+  clearUpdateMask(): PutExecutionsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutExecutionsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutExecutionsRequest): PutExecutionsRequest.AsObject;
@@ -244,6 +273,8 @@ export class PutExecutionsRequest extends jspb.Message {
 export namespace PutExecutionsRequest {
   export type AsObject = {
     executionsList: Array<ml_metadata_proto_metadata_store_pb.Execution.AsObject>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+    updateMask?: google_protobuf_field_mask_pb.FieldMask.AsObject,
   }
 }
 
@@ -285,6 +316,11 @@ export class PutExecutionTypeRequest extends jspb.Message {
   getAllFieldsMatch(): boolean;
   setAllFieldsMatch(value: boolean): PutExecutionTypeRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutExecutionTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutExecutionTypeRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutExecutionTypeRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutExecutionTypeRequest): PutExecutionTypeRequest.AsObject;
@@ -300,6 +336,7 @@ export namespace PutExecutionTypeRequest {
     canOmitFields: boolean,
     canDeleteFields: boolean,
     allFieldsMatch: boolean,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -327,6 +364,11 @@ export class PutEventsRequest extends jspb.Message {
   clearEventsList(): PutEventsRequest;
   addEvents(value?: ml_metadata_proto_metadata_store_pb.Event, index?: number): ml_metadata_proto_metadata_store_pb.Event;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutEventsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutEventsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutEventsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutEventsRequest): PutEventsRequest.AsObject;
@@ -338,6 +380,7 @@ export class PutEventsRequest extends jspb.Message {
 export namespace PutEventsRequest {
   export type AsObject = {
     eventsList: Array<ml_metadata_proto_metadata_store_pb.Event.AsObject>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -376,6 +419,11 @@ export class PutExecutionRequest extends jspb.Message {
   hasOptions(): boolean;
   clearOptions(): PutExecutionRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutExecutionRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutExecutionRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutExecutionRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutExecutionRequest): PutExecutionRequest.AsObject;
@@ -390,6 +438,7 @@ export namespace PutExecutionRequest {
     artifactEventPairsList: Array<PutExecutionRequest.ArtifactAndEvent.AsObject>,
     contextsList: Array<ml_metadata_proto_metadata_store_pb.Context.AsObject>,
     options?: PutExecutionRequest.Options.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 
   export class ArtifactAndEvent extends jspb.Message {
@@ -423,6 +472,9 @@ export namespace PutExecutionRequest {
     getReuseContextIfAlreadyExist(): boolean;
     setReuseContextIfAlreadyExist(value: boolean): Options;
 
+    getReuseArtifactIfAlreadyExistByExternalId(): boolean;
+    setReuseArtifactIfAlreadyExistByExternalId(value: boolean): Options;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Options.AsObject;
     static toObject(includeInstance: boolean, msg: Options): Options.AsObject;
@@ -434,6 +486,7 @@ export namespace PutExecutionRequest {
   export namespace Options {
     export type AsObject = {
       reuseContextIfAlreadyExist: boolean,
+      reuseArtifactIfAlreadyExistByExternalId: boolean,
     }
   }
 
@@ -469,6 +522,140 @@ export namespace PutExecutionResponse {
   }
 }
 
+export class PutLineageSubgraphRequest extends jspb.Message {
+  getExecutionsList(): Array<ml_metadata_proto_metadata_store_pb.Execution>;
+  setExecutionsList(value: Array<ml_metadata_proto_metadata_store_pb.Execution>): PutLineageSubgraphRequest;
+  clearExecutionsList(): PutLineageSubgraphRequest;
+  addExecutions(value?: ml_metadata_proto_metadata_store_pb.Execution, index?: number): ml_metadata_proto_metadata_store_pb.Execution;
+
+  getArtifactsList(): Array<ml_metadata_proto_metadata_store_pb.Artifact>;
+  setArtifactsList(value: Array<ml_metadata_proto_metadata_store_pb.Artifact>): PutLineageSubgraphRequest;
+  clearArtifactsList(): PutLineageSubgraphRequest;
+  addArtifacts(value?: ml_metadata_proto_metadata_store_pb.Artifact, index?: number): ml_metadata_proto_metadata_store_pb.Artifact;
+
+  getContextsList(): Array<ml_metadata_proto_metadata_store_pb.Context>;
+  setContextsList(value: Array<ml_metadata_proto_metadata_store_pb.Context>): PutLineageSubgraphRequest;
+  clearContextsList(): PutLineageSubgraphRequest;
+  addContexts(value?: ml_metadata_proto_metadata_store_pb.Context, index?: number): ml_metadata_proto_metadata_store_pb.Context;
+
+  getEventEdgesList(): Array<PutLineageSubgraphRequest.EventEdge>;
+  setEventEdgesList(value: Array<PutLineageSubgraphRequest.EventEdge>): PutLineageSubgraphRequest;
+  clearEventEdgesList(): PutLineageSubgraphRequest;
+  addEventEdges(value?: PutLineageSubgraphRequest.EventEdge, index?: number): PutLineageSubgraphRequest.EventEdge;
+
+  getOptions(): PutLineageSubgraphRequest.Options | undefined;
+  setOptions(value?: PutLineageSubgraphRequest.Options): PutLineageSubgraphRequest;
+  hasOptions(): boolean;
+  clearOptions(): PutLineageSubgraphRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutLineageSubgraphRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutLineageSubgraphRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): PutLineageSubgraphRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: PutLineageSubgraphRequest): PutLineageSubgraphRequest.AsObject;
+  static serializeBinaryToWriter(message: PutLineageSubgraphRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): PutLineageSubgraphRequest;
+  static deserializeBinaryFromReader(message: PutLineageSubgraphRequest, reader: jspb.BinaryReader): PutLineageSubgraphRequest;
+}
+
+export namespace PutLineageSubgraphRequest {
+  export type AsObject = {
+    executionsList: Array<ml_metadata_proto_metadata_store_pb.Execution.AsObject>,
+    artifactsList: Array<ml_metadata_proto_metadata_store_pb.Artifact.AsObject>,
+    contextsList: Array<ml_metadata_proto_metadata_store_pb.Context.AsObject>,
+    eventEdgesList: Array<PutLineageSubgraphRequest.EventEdge.AsObject>,
+    options?: PutLineageSubgraphRequest.Options.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+
+  export class EventEdge extends jspb.Message {
+    getExecutionIndex(): number;
+    setExecutionIndex(value: number): EventEdge;
+
+    getArtifactIndex(): number;
+    setArtifactIndex(value: number): EventEdge;
+
+    getEvent(): ml_metadata_proto_metadata_store_pb.Event | undefined;
+    setEvent(value?: ml_metadata_proto_metadata_store_pb.Event): EventEdge;
+    hasEvent(): boolean;
+    clearEvent(): EventEdge;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EventEdge.AsObject;
+    static toObject(includeInstance: boolean, msg: EventEdge): EventEdge.AsObject;
+    static serializeBinaryToWriter(message: EventEdge, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EventEdge;
+    static deserializeBinaryFromReader(message: EventEdge, reader: jspb.BinaryReader): EventEdge;
+  }
+
+  export namespace EventEdge {
+    export type AsObject = {
+      executionIndex: number,
+      artifactIndex: number,
+      event?: ml_metadata_proto_metadata_store_pb.Event.AsObject,
+    }
+  }
+
+
+  export class Options extends jspb.Message {
+    getReuseContextIfAlreadyExist(): boolean;
+    setReuseContextIfAlreadyExist(value: boolean): Options;
+
+    getReuseArtifactIfAlreadyExistByExternalId(): boolean;
+    setReuseArtifactIfAlreadyExistByExternalId(value: boolean): Options;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Options.AsObject;
+    static toObject(includeInstance: boolean, msg: Options): Options.AsObject;
+    static serializeBinaryToWriter(message: Options, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Options;
+    static deserializeBinaryFromReader(message: Options, reader: jspb.BinaryReader): Options;
+  }
+
+  export namespace Options {
+    export type AsObject = {
+      reuseContextIfAlreadyExist: boolean,
+      reuseArtifactIfAlreadyExistByExternalId: boolean,
+    }
+  }
+
+}
+
+export class PutLineageSubgraphResponse extends jspb.Message {
+  getExecutionIdsList(): Array<number>;
+  setExecutionIdsList(value: Array<number>): PutLineageSubgraphResponse;
+  clearExecutionIdsList(): PutLineageSubgraphResponse;
+  addExecutionIds(value: number, index?: number): PutLineageSubgraphResponse;
+
+  getArtifactIdsList(): Array<number>;
+  setArtifactIdsList(value: Array<number>): PutLineageSubgraphResponse;
+  clearArtifactIdsList(): PutLineageSubgraphResponse;
+  addArtifactIds(value: number, index?: number): PutLineageSubgraphResponse;
+
+  getContextIdsList(): Array<number>;
+  setContextIdsList(value: Array<number>): PutLineageSubgraphResponse;
+  clearContextIdsList(): PutLineageSubgraphResponse;
+  addContextIds(value: number, index?: number): PutLineageSubgraphResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): PutLineageSubgraphResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: PutLineageSubgraphResponse): PutLineageSubgraphResponse.AsObject;
+  static serializeBinaryToWriter(message: PutLineageSubgraphResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): PutLineageSubgraphResponse;
+  static deserializeBinaryFromReader(message: PutLineageSubgraphResponse, reader: jspb.BinaryReader): PutLineageSubgraphResponse;
+}
+
+export namespace PutLineageSubgraphResponse {
+  export type AsObject = {
+    executionIdsList: Array<number>,
+    artifactIdsList: Array<number>,
+    contextIdsList: Array<number>,
+  }
+}
+
 export class PutTypesRequest extends jspb.Message {
   getArtifactTypesList(): Array<ml_metadata_proto_metadata_store_pb.ArtifactType>;
   setArtifactTypesList(value: Array<ml_metadata_proto_metadata_store_pb.ArtifactType>): PutTypesRequest;
@@ -497,6 +684,11 @@ export class PutTypesRequest extends jspb.Message {
   getAllFieldsMatch(): boolean;
   setAllFieldsMatch(value: boolean): PutTypesRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutTypesRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutTypesRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutTypesRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutTypesRequest): PutTypesRequest.AsObject;
@@ -514,6 +706,7 @@ export namespace PutTypesRequest {
     canOmitFields: boolean,
     canDeleteFields: boolean,
     allFieldsMatch: boolean,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -567,6 +760,11 @@ export class PutContextTypeRequest extends jspb.Message {
   getAllFieldsMatch(): boolean;
   setAllFieldsMatch(value: boolean): PutContextTypeRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutContextTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutContextTypeRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutContextTypeRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutContextTypeRequest): PutContextTypeRequest.AsObject;
@@ -582,6 +780,7 @@ export namespace PutContextTypeRequest {
     canOmitFields: boolean,
     canDeleteFields: boolean,
     allFieldsMatch: boolean,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -609,6 +808,16 @@ export class PutContextsRequest extends jspb.Message {
   clearContextsList(): PutContextsRequest;
   addContexts(value?: ml_metadata_proto_metadata_store_pb.Context, index?: number): ml_metadata_proto_metadata_store_pb.Context;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutContextsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutContextsRequest;
+
+  getUpdateMask(): google_protobuf_field_mask_pb.FieldMask | undefined;
+  setUpdateMask(value?: google_protobuf_field_mask_pb.FieldMask): PutContextsRequest;
+  hasUpdateMask(): boolean;
+  clearUpdateMask(): PutContextsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutContextsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutContextsRequest): PutContextsRequest.AsObject;
@@ -620,6 +829,8 @@ export class PutContextsRequest extends jspb.Message {
 export namespace PutContextsRequest {
   export type AsObject = {
     contextsList: Array<ml_metadata_proto_metadata_store_pb.Context.AsObject>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+    updateMask?: google_protobuf_field_mask_pb.FieldMask.AsObject,
   }
 }
 
@@ -654,6 +865,11 @@ export class PutAttributionsAndAssociationsRequest extends jspb.Message {
   clearAssociationsList(): PutAttributionsAndAssociationsRequest;
   addAssociations(value?: ml_metadata_proto_metadata_store_pb.Association, index?: number): ml_metadata_proto_metadata_store_pb.Association;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutAttributionsAndAssociationsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutAttributionsAndAssociationsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutAttributionsAndAssociationsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutAttributionsAndAssociationsRequest): PutAttributionsAndAssociationsRequest.AsObject;
@@ -666,6 +882,7 @@ export namespace PutAttributionsAndAssociationsRequest {
   export type AsObject = {
     attributionsList: Array<ml_metadata_proto_metadata_store_pb.Attribution.AsObject>,
     associationsList: Array<ml_metadata_proto_metadata_store_pb.Association.AsObject>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -689,6 +906,11 @@ export class PutParentContextsRequest extends jspb.Message {
   clearParentContextsList(): PutParentContextsRequest;
   addParentContexts(value?: ml_metadata_proto_metadata_store_pb.ParentContext, index?: number): ml_metadata_proto_metadata_store_pb.ParentContext;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): PutParentContextsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): PutParentContextsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PutParentContextsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PutParentContextsRequest): PutParentContextsRequest.AsObject;
@@ -700,6 +922,7 @@ export class PutParentContextsRequest extends jspb.Message {
 export namespace PutParentContextsRequest {
   export type AsObject = {
     parentContextsList: Array<ml_metadata_proto_metadata_store_pb.ParentContext.AsObject>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -724,6 +947,16 @@ export class GetArtifactsByTypeRequest extends jspb.Message {
   getTypeVersion(): string;
   setTypeVersion(value: string): GetArtifactsByTypeRequest;
 
+  getOptions(): ml_metadata_proto_metadata_store_pb.ListOperationOptions | undefined;
+  setOptions(value?: ml_metadata_proto_metadata_store_pb.ListOperationOptions): GetArtifactsByTypeRequest;
+  hasOptions(): boolean;
+  clearOptions(): GetArtifactsByTypeRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactsByTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactsByTypeRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactsByTypeRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetArtifactsByTypeRequest): GetArtifactsByTypeRequest.AsObject;
@@ -736,6 +969,8 @@ export namespace GetArtifactsByTypeRequest {
   export type AsObject = {
     typeName: string,
     typeVersion: string,
+    options?: ml_metadata_proto_metadata_store_pb.ListOperationOptions.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -744,6 +979,9 @@ export class GetArtifactsByTypeResponse extends jspb.Message {
   setArtifactsList(value: Array<ml_metadata_proto_metadata_store_pb.Artifact>): GetArtifactsByTypeResponse;
   clearArtifactsList(): GetArtifactsByTypeResponse;
   addArtifacts(value?: ml_metadata_proto_metadata_store_pb.Artifact, index?: number): ml_metadata_proto_metadata_store_pb.Artifact;
+
+  getNextPageToken(): string;
+  setNextPageToken(value: string): GetArtifactsByTypeResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactsByTypeResponse.AsObject;
@@ -756,6 +994,7 @@ export class GetArtifactsByTypeResponse extends jspb.Message {
 export namespace GetArtifactsByTypeResponse {
   export type AsObject = {
     artifactsList: Array<ml_metadata_proto_metadata_store_pb.Artifact.AsObject>,
+    nextPageToken: string,
   }
 }
 
@@ -768,6 +1007,11 @@ export class GetArtifactByTypeAndNameRequest extends jspb.Message {
 
   getArtifactName(): string;
   setArtifactName(value: string): GetArtifactByTypeAndNameRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactByTypeAndNameRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactByTypeAndNameRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactByTypeAndNameRequest.AsObject;
@@ -782,6 +1026,7 @@ export namespace GetArtifactByTypeAndNameRequest {
     typeName: string,
     typeVersion: string,
     artifactName: string,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -811,6 +1056,14 @@ export class GetArtifactsByIDRequest extends jspb.Message {
   clearArtifactIdsList(): GetArtifactsByIDRequest;
   addArtifactIds(value: number, index?: number): GetArtifactsByIDRequest;
 
+  getPopulateArtifactTypes(): boolean;
+  setPopulateArtifactTypes(value: boolean): GetArtifactsByIDRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactsByIDRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactsByIDRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactsByIDRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetArtifactsByIDRequest): GetArtifactsByIDRequest.AsObject;
@@ -822,6 +1075,8 @@ export class GetArtifactsByIDRequest extends jspb.Message {
 export namespace GetArtifactsByIDRequest {
   export type AsObject = {
     artifactIdsList: Array<number>,
+    populateArtifactTypes: boolean,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -830,6 +1085,11 @@ export class GetArtifactsByIDResponse extends jspb.Message {
   setArtifactsList(value: Array<ml_metadata_proto_metadata_store_pb.Artifact>): GetArtifactsByIDResponse;
   clearArtifactsList(): GetArtifactsByIDResponse;
   addArtifacts(value?: ml_metadata_proto_metadata_store_pb.Artifact, index?: number): ml_metadata_proto_metadata_store_pb.Artifact;
+
+  getArtifactTypesList(): Array<ml_metadata_proto_metadata_store_pb.ArtifactType>;
+  setArtifactTypesList(value: Array<ml_metadata_proto_metadata_store_pb.ArtifactType>): GetArtifactsByIDResponse;
+  clearArtifactTypesList(): GetArtifactsByIDResponse;
+  addArtifactTypes(value?: ml_metadata_proto_metadata_store_pb.ArtifactType, index?: number): ml_metadata_proto_metadata_store_pb.ArtifactType;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactsByIDResponse.AsObject;
@@ -842,6 +1102,7 @@ export class GetArtifactsByIDResponse extends jspb.Message {
 export namespace GetArtifactsByIDResponse {
   export type AsObject = {
     artifactsList: Array<ml_metadata_proto_metadata_store_pb.Artifact.AsObject>,
+    artifactTypesList: Array<ml_metadata_proto_metadata_store_pb.ArtifactType.AsObject>,
   }
 }
 
@@ -850,6 +1111,11 @@ export class GetArtifactsRequest extends jspb.Message {
   setOptions(value?: ml_metadata_proto_metadata_store_pb.ListOperationOptions): GetArtifactsRequest;
   hasOptions(): boolean;
   clearOptions(): GetArtifactsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactsRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactsRequest.AsObject;
@@ -862,6 +1128,7 @@ export class GetArtifactsRequest extends jspb.Message {
 export namespace GetArtifactsRequest {
   export type AsObject = {
     options?: ml_metadata_proto_metadata_store_pb.ListOperationOptions.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -895,6 +1162,11 @@ export class GetArtifactsByURIRequest extends jspb.Message {
   clearUrisList(): GetArtifactsByURIRequest;
   addUris(value: string, index?: number): GetArtifactsByURIRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactsByURIRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactsByURIRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactsByURIRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetArtifactsByURIRequest): GetArtifactsByURIRequest.AsObject;
@@ -906,6 +1178,7 @@ export class GetArtifactsByURIRequest extends jspb.Message {
 export namespace GetArtifactsByURIRequest {
   export type AsObject = {
     urisList: Array<string>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -935,6 +1208,11 @@ export class GetExecutionsRequest extends jspb.Message {
   hasOptions(): boolean;
   clearOptions(): GetExecutionsRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetExecutionsRequest): GetExecutionsRequest.AsObject;
@@ -946,6 +1224,7 @@ export class GetExecutionsRequest extends jspb.Message {
 export namespace GetExecutionsRequest {
   export type AsObject = {
     options?: ml_metadata_proto_metadata_store_pb.ListOperationOptions.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -980,6 +1259,11 @@ export class GetArtifactTypeRequest extends jspb.Message {
   getTypeVersion(): string;
   setTypeVersion(value: string): GetArtifactTypeRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactTypeRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactTypeRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetArtifactTypeRequest): GetArtifactTypeRequest.AsObject;
@@ -992,6 +1276,7 @@ export namespace GetArtifactTypeRequest {
   export type AsObject = {
     typeName: string,
     typeVersion: string,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1016,6 +1301,11 @@ export namespace GetArtifactTypeResponse {
 }
 
 export class GetArtifactTypesRequest extends jspb.Message {
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactTypesRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactTypesRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactTypesRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetArtifactTypesRequest): GetArtifactTypesRequest.AsObject;
@@ -1026,6 +1316,7 @@ export class GetArtifactTypesRequest extends jspb.Message {
 
 export namespace GetArtifactTypesRequest {
   export type AsObject = {
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1050,6 +1341,11 @@ export namespace GetArtifactTypesResponse {
 }
 
 export class GetExecutionTypesRequest extends jspb.Message {
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionTypesRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionTypesRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionTypesRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetExecutionTypesRequest): GetExecutionTypesRequest.AsObject;
@@ -1060,6 +1356,7 @@ export class GetExecutionTypesRequest extends jspb.Message {
 
 export namespace GetExecutionTypesRequest {
   export type AsObject = {
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1084,6 +1381,11 @@ export namespace GetExecutionTypesResponse {
 }
 
 export class GetContextTypesRequest extends jspb.Message {
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextTypesRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextTypesRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextTypesRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextTypesRequest): GetContextTypesRequest.AsObject;
@@ -1094,6 +1396,7 @@ export class GetContextTypesRequest extends jspb.Message {
 
 export namespace GetContextTypesRequest {
   export type AsObject = {
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1117,12 +1420,298 @@ export namespace GetContextTypesResponse {
   }
 }
 
+export class GetArtifactsByExternalIdsRequest extends jspb.Message {
+  getExternalIdsList(): Array<string>;
+  setExternalIdsList(value: Array<string>): GetArtifactsByExternalIdsRequest;
+  clearExternalIdsList(): GetArtifactsByExternalIdsRequest;
+  addExternalIds(value: string, index?: number): GetArtifactsByExternalIdsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactsByExternalIdsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactsByExternalIdsRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetArtifactsByExternalIdsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetArtifactsByExternalIdsRequest): GetArtifactsByExternalIdsRequest.AsObject;
+  static serializeBinaryToWriter(message: GetArtifactsByExternalIdsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetArtifactsByExternalIdsRequest;
+  static deserializeBinaryFromReader(message: GetArtifactsByExternalIdsRequest, reader: jspb.BinaryReader): GetArtifactsByExternalIdsRequest;
+}
+
+export namespace GetArtifactsByExternalIdsRequest {
+  export type AsObject = {
+    externalIdsList: Array<string>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetArtifactsByExternalIdsResponse extends jspb.Message {
+  getArtifactsList(): Array<ml_metadata_proto_metadata_store_pb.Artifact>;
+  setArtifactsList(value: Array<ml_metadata_proto_metadata_store_pb.Artifact>): GetArtifactsByExternalIdsResponse;
+  clearArtifactsList(): GetArtifactsByExternalIdsResponse;
+  addArtifacts(value?: ml_metadata_proto_metadata_store_pb.Artifact, index?: number): ml_metadata_proto_metadata_store_pb.Artifact;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetArtifactsByExternalIdsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetArtifactsByExternalIdsResponse): GetArtifactsByExternalIdsResponse.AsObject;
+  static serializeBinaryToWriter(message: GetArtifactsByExternalIdsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetArtifactsByExternalIdsResponse;
+  static deserializeBinaryFromReader(message: GetArtifactsByExternalIdsResponse, reader: jspb.BinaryReader): GetArtifactsByExternalIdsResponse;
+}
+
+export namespace GetArtifactsByExternalIdsResponse {
+  export type AsObject = {
+    artifactsList: Array<ml_metadata_proto_metadata_store_pb.Artifact.AsObject>,
+  }
+}
+
+export class GetExecutionsByExternalIdsRequest extends jspb.Message {
+  getExternalIdsList(): Array<string>;
+  setExternalIdsList(value: Array<string>): GetExecutionsByExternalIdsRequest;
+  clearExternalIdsList(): GetExecutionsByExternalIdsRequest;
+  addExternalIds(value: string, index?: number): GetExecutionsByExternalIdsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionsByExternalIdsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionsByExternalIdsRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetExecutionsByExternalIdsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetExecutionsByExternalIdsRequest): GetExecutionsByExternalIdsRequest.AsObject;
+  static serializeBinaryToWriter(message: GetExecutionsByExternalIdsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetExecutionsByExternalIdsRequest;
+  static deserializeBinaryFromReader(message: GetExecutionsByExternalIdsRequest, reader: jspb.BinaryReader): GetExecutionsByExternalIdsRequest;
+}
+
+export namespace GetExecutionsByExternalIdsRequest {
+  export type AsObject = {
+    externalIdsList: Array<string>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetExecutionsByExternalIdsResponse extends jspb.Message {
+  getExecutionsList(): Array<ml_metadata_proto_metadata_store_pb.Execution>;
+  setExecutionsList(value: Array<ml_metadata_proto_metadata_store_pb.Execution>): GetExecutionsByExternalIdsResponse;
+  clearExecutionsList(): GetExecutionsByExternalIdsResponse;
+  addExecutions(value?: ml_metadata_proto_metadata_store_pb.Execution, index?: number): ml_metadata_proto_metadata_store_pb.Execution;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetExecutionsByExternalIdsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetExecutionsByExternalIdsResponse): GetExecutionsByExternalIdsResponse.AsObject;
+  static serializeBinaryToWriter(message: GetExecutionsByExternalIdsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetExecutionsByExternalIdsResponse;
+  static deserializeBinaryFromReader(message: GetExecutionsByExternalIdsResponse, reader: jspb.BinaryReader): GetExecutionsByExternalIdsResponse;
+}
+
+export namespace GetExecutionsByExternalIdsResponse {
+  export type AsObject = {
+    executionsList: Array<ml_metadata_proto_metadata_store_pb.Execution.AsObject>,
+  }
+}
+
+export class GetContextsByExternalIdsRequest extends jspb.Message {
+  getExternalIdsList(): Array<string>;
+  setExternalIdsList(value: Array<string>): GetContextsByExternalIdsRequest;
+  clearExternalIdsList(): GetContextsByExternalIdsRequest;
+  addExternalIds(value: string, index?: number): GetContextsByExternalIdsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextsByExternalIdsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextsByExternalIdsRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetContextsByExternalIdsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetContextsByExternalIdsRequest): GetContextsByExternalIdsRequest.AsObject;
+  static serializeBinaryToWriter(message: GetContextsByExternalIdsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetContextsByExternalIdsRequest;
+  static deserializeBinaryFromReader(message: GetContextsByExternalIdsRequest, reader: jspb.BinaryReader): GetContextsByExternalIdsRequest;
+}
+
+export namespace GetContextsByExternalIdsRequest {
+  export type AsObject = {
+    externalIdsList: Array<string>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetContextsByExternalIdsResponse extends jspb.Message {
+  getContextsList(): Array<ml_metadata_proto_metadata_store_pb.Context>;
+  setContextsList(value: Array<ml_metadata_proto_metadata_store_pb.Context>): GetContextsByExternalIdsResponse;
+  clearContextsList(): GetContextsByExternalIdsResponse;
+  addContexts(value?: ml_metadata_proto_metadata_store_pb.Context, index?: number): ml_metadata_proto_metadata_store_pb.Context;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetContextsByExternalIdsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetContextsByExternalIdsResponse): GetContextsByExternalIdsResponse.AsObject;
+  static serializeBinaryToWriter(message: GetContextsByExternalIdsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetContextsByExternalIdsResponse;
+  static deserializeBinaryFromReader(message: GetContextsByExternalIdsResponse, reader: jspb.BinaryReader): GetContextsByExternalIdsResponse;
+}
+
+export namespace GetContextsByExternalIdsResponse {
+  export type AsObject = {
+    contextsList: Array<ml_metadata_proto_metadata_store_pb.Context.AsObject>,
+  }
+}
+
+export class GetArtifactTypesByExternalIdsRequest extends jspb.Message {
+  getExternalIdsList(): Array<string>;
+  setExternalIdsList(value: Array<string>): GetArtifactTypesByExternalIdsRequest;
+  clearExternalIdsList(): GetArtifactTypesByExternalIdsRequest;
+  addExternalIds(value: string, index?: number): GetArtifactTypesByExternalIdsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactTypesByExternalIdsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactTypesByExternalIdsRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetArtifactTypesByExternalIdsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetArtifactTypesByExternalIdsRequest): GetArtifactTypesByExternalIdsRequest.AsObject;
+  static serializeBinaryToWriter(message: GetArtifactTypesByExternalIdsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetArtifactTypesByExternalIdsRequest;
+  static deserializeBinaryFromReader(message: GetArtifactTypesByExternalIdsRequest, reader: jspb.BinaryReader): GetArtifactTypesByExternalIdsRequest;
+}
+
+export namespace GetArtifactTypesByExternalIdsRequest {
+  export type AsObject = {
+    externalIdsList: Array<string>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetArtifactTypesByExternalIdsResponse extends jspb.Message {
+  getArtifactTypesList(): Array<ml_metadata_proto_metadata_store_pb.ArtifactType>;
+  setArtifactTypesList(value: Array<ml_metadata_proto_metadata_store_pb.ArtifactType>): GetArtifactTypesByExternalIdsResponse;
+  clearArtifactTypesList(): GetArtifactTypesByExternalIdsResponse;
+  addArtifactTypes(value?: ml_metadata_proto_metadata_store_pb.ArtifactType, index?: number): ml_metadata_proto_metadata_store_pb.ArtifactType;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetArtifactTypesByExternalIdsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetArtifactTypesByExternalIdsResponse): GetArtifactTypesByExternalIdsResponse.AsObject;
+  static serializeBinaryToWriter(message: GetArtifactTypesByExternalIdsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetArtifactTypesByExternalIdsResponse;
+  static deserializeBinaryFromReader(message: GetArtifactTypesByExternalIdsResponse, reader: jspb.BinaryReader): GetArtifactTypesByExternalIdsResponse;
+}
+
+export namespace GetArtifactTypesByExternalIdsResponse {
+  export type AsObject = {
+    artifactTypesList: Array<ml_metadata_proto_metadata_store_pb.ArtifactType.AsObject>,
+  }
+}
+
+export class GetExecutionTypesByExternalIdsRequest extends jspb.Message {
+  getExternalIdsList(): Array<string>;
+  setExternalIdsList(value: Array<string>): GetExecutionTypesByExternalIdsRequest;
+  clearExternalIdsList(): GetExecutionTypesByExternalIdsRequest;
+  addExternalIds(value: string, index?: number): GetExecutionTypesByExternalIdsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionTypesByExternalIdsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionTypesByExternalIdsRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetExecutionTypesByExternalIdsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetExecutionTypesByExternalIdsRequest): GetExecutionTypesByExternalIdsRequest.AsObject;
+  static serializeBinaryToWriter(message: GetExecutionTypesByExternalIdsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetExecutionTypesByExternalIdsRequest;
+  static deserializeBinaryFromReader(message: GetExecutionTypesByExternalIdsRequest, reader: jspb.BinaryReader): GetExecutionTypesByExternalIdsRequest;
+}
+
+export namespace GetExecutionTypesByExternalIdsRequest {
+  export type AsObject = {
+    externalIdsList: Array<string>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetExecutionTypesByExternalIdsResponse extends jspb.Message {
+  getExecutionTypesList(): Array<ml_metadata_proto_metadata_store_pb.ExecutionType>;
+  setExecutionTypesList(value: Array<ml_metadata_proto_metadata_store_pb.ExecutionType>): GetExecutionTypesByExternalIdsResponse;
+  clearExecutionTypesList(): GetExecutionTypesByExternalIdsResponse;
+  addExecutionTypes(value?: ml_metadata_proto_metadata_store_pb.ExecutionType, index?: number): ml_metadata_proto_metadata_store_pb.ExecutionType;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetExecutionTypesByExternalIdsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetExecutionTypesByExternalIdsResponse): GetExecutionTypesByExternalIdsResponse.AsObject;
+  static serializeBinaryToWriter(message: GetExecutionTypesByExternalIdsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetExecutionTypesByExternalIdsResponse;
+  static deserializeBinaryFromReader(message: GetExecutionTypesByExternalIdsResponse, reader: jspb.BinaryReader): GetExecutionTypesByExternalIdsResponse;
+}
+
+export namespace GetExecutionTypesByExternalIdsResponse {
+  export type AsObject = {
+    executionTypesList: Array<ml_metadata_proto_metadata_store_pb.ExecutionType.AsObject>,
+  }
+}
+
+export class GetContextTypesByExternalIdsRequest extends jspb.Message {
+  getExternalIdsList(): Array<string>;
+  setExternalIdsList(value: Array<string>): GetContextTypesByExternalIdsRequest;
+  clearExternalIdsList(): GetContextTypesByExternalIdsRequest;
+  addExternalIds(value: string, index?: number): GetContextTypesByExternalIdsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextTypesByExternalIdsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextTypesByExternalIdsRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetContextTypesByExternalIdsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetContextTypesByExternalIdsRequest): GetContextTypesByExternalIdsRequest.AsObject;
+  static serializeBinaryToWriter(message: GetContextTypesByExternalIdsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetContextTypesByExternalIdsRequest;
+  static deserializeBinaryFromReader(message: GetContextTypesByExternalIdsRequest, reader: jspb.BinaryReader): GetContextTypesByExternalIdsRequest;
+}
+
+export namespace GetContextTypesByExternalIdsRequest {
+  export type AsObject = {
+    externalIdsList: Array<string>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetContextTypesByExternalIdsResponse extends jspb.Message {
+  getContextTypesList(): Array<ml_metadata_proto_metadata_store_pb.ContextType>;
+  setContextTypesList(value: Array<ml_metadata_proto_metadata_store_pb.ContextType>): GetContextTypesByExternalIdsResponse;
+  clearContextTypesList(): GetContextTypesByExternalIdsResponse;
+  addContextTypes(value?: ml_metadata_proto_metadata_store_pb.ContextType, index?: number): ml_metadata_proto_metadata_store_pb.ContextType;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetContextTypesByExternalIdsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetContextTypesByExternalIdsResponse): GetContextTypesByExternalIdsResponse.AsObject;
+  static serializeBinaryToWriter(message: GetContextTypesByExternalIdsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetContextTypesByExternalIdsResponse;
+  static deserializeBinaryFromReader(message: GetContextTypesByExternalIdsResponse, reader: jspb.BinaryReader): GetContextTypesByExternalIdsResponse;
+}
+
+export namespace GetContextTypesByExternalIdsResponse {
+  export type AsObject = {
+    contextTypesList: Array<ml_metadata_proto_metadata_store_pb.ContextType.AsObject>,
+  }
+}
+
 export class GetExecutionsByTypeRequest extends jspb.Message {
   getTypeName(): string;
   setTypeName(value: string): GetExecutionsByTypeRequest;
 
   getTypeVersion(): string;
   setTypeVersion(value: string): GetExecutionsByTypeRequest;
+
+  getOptions(): ml_metadata_proto_metadata_store_pb.ListOperationOptions | undefined;
+  setOptions(value?: ml_metadata_proto_metadata_store_pb.ListOperationOptions): GetExecutionsByTypeRequest;
+  hasOptions(): boolean;
+  clearOptions(): GetExecutionsByTypeRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionsByTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionsByTypeRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionsByTypeRequest.AsObject;
@@ -1136,6 +1725,8 @@ export namespace GetExecutionsByTypeRequest {
   export type AsObject = {
     typeName: string,
     typeVersion: string,
+    options?: ml_metadata_proto_metadata_store_pb.ListOperationOptions.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1144,6 +1735,9 @@ export class GetExecutionsByTypeResponse extends jspb.Message {
   setExecutionsList(value: Array<ml_metadata_proto_metadata_store_pb.Execution>): GetExecutionsByTypeResponse;
   clearExecutionsList(): GetExecutionsByTypeResponse;
   addExecutions(value?: ml_metadata_proto_metadata_store_pb.Execution, index?: number): ml_metadata_proto_metadata_store_pb.Execution;
+
+  getNextPageToken(): string;
+  setNextPageToken(value: string): GetExecutionsByTypeResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionsByTypeResponse.AsObject;
@@ -1156,6 +1750,7 @@ export class GetExecutionsByTypeResponse extends jspb.Message {
 export namespace GetExecutionsByTypeResponse {
   export type AsObject = {
     executionsList: Array<ml_metadata_proto_metadata_store_pb.Execution.AsObject>,
+    nextPageToken: string,
   }
 }
 
@@ -1168,6 +1763,11 @@ export class GetExecutionByTypeAndNameRequest extends jspb.Message {
 
   getExecutionName(): string;
   setExecutionName(value: string): GetExecutionByTypeAndNameRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionByTypeAndNameRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionByTypeAndNameRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionByTypeAndNameRequest.AsObject;
@@ -1182,6 +1782,7 @@ export namespace GetExecutionByTypeAndNameRequest {
     typeName: string,
     typeVersion: string,
     executionName: string,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1211,6 +1812,11 @@ export class GetExecutionsByIDRequest extends jspb.Message {
   clearExecutionIdsList(): GetExecutionsByIDRequest;
   addExecutionIds(value: number, index?: number): GetExecutionsByIDRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionsByIDRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionsByIDRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionsByIDRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetExecutionsByIDRequest): GetExecutionsByIDRequest.AsObject;
@@ -1222,6 +1828,7 @@ export class GetExecutionsByIDRequest extends jspb.Message {
 export namespace GetExecutionsByIDRequest {
   export type AsObject = {
     executionIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1252,6 +1859,11 @@ export class GetExecutionTypeRequest extends jspb.Message {
   getTypeVersion(): string;
   setTypeVersion(value: string): GetExecutionTypeRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionTypeRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionTypeRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetExecutionTypeRequest): GetExecutionTypeRequest.AsObject;
@@ -1264,6 +1876,7 @@ export namespace GetExecutionTypeRequest {
   export type AsObject = {
     typeName: string,
     typeVersion: string,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1293,6 +1906,11 @@ export class GetEventsByExecutionIDsRequest extends jspb.Message {
   clearExecutionIdsList(): GetEventsByExecutionIDsRequest;
   addExecutionIds(value: number, index?: number): GetEventsByExecutionIDsRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetEventsByExecutionIDsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetEventsByExecutionIDsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetEventsByExecutionIDsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetEventsByExecutionIDsRequest): GetEventsByExecutionIDsRequest.AsObject;
@@ -1304,6 +1922,7 @@ export class GetEventsByExecutionIDsRequest extends jspb.Message {
 export namespace GetEventsByExecutionIDsRequest {
   export type AsObject = {
     executionIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1333,6 +1952,11 @@ export class GetEventsByArtifactIDsRequest extends jspb.Message {
   clearArtifactIdsList(): GetEventsByArtifactIDsRequest;
   addArtifactIds(value: number, index?: number): GetEventsByArtifactIDsRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetEventsByArtifactIDsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetEventsByArtifactIDsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetEventsByArtifactIDsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetEventsByArtifactIDsRequest): GetEventsByArtifactIDsRequest.AsObject;
@@ -1344,6 +1968,7 @@ export class GetEventsByArtifactIDsRequest extends jspb.Message {
 export namespace GetEventsByArtifactIDsRequest {
   export type AsObject = {
     artifactIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1373,6 +1998,11 @@ export class GetArtifactTypesByIDRequest extends jspb.Message {
   clearTypeIdsList(): GetArtifactTypesByIDRequest;
   addTypeIds(value: number, index?: number): GetArtifactTypesByIDRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactTypesByIDRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactTypesByIDRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactTypesByIDRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetArtifactTypesByIDRequest): GetArtifactTypesByIDRequest.AsObject;
@@ -1384,6 +2014,7 @@ export class GetArtifactTypesByIDRequest extends jspb.Message {
 export namespace GetArtifactTypesByIDRequest {
   export type AsObject = {
     typeIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1413,6 +2044,11 @@ export class GetExecutionTypesByIDRequest extends jspb.Message {
   clearTypeIdsList(): GetExecutionTypesByIDRequest;
   addTypeIds(value: number, index?: number): GetExecutionTypesByIDRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionTypesByIDRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionTypesByIDRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionTypesByIDRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetExecutionTypesByIDRequest): GetExecutionTypesByIDRequest.AsObject;
@@ -1424,6 +2060,7 @@ export class GetExecutionTypesByIDRequest extends jspb.Message {
 export namespace GetExecutionTypesByIDRequest {
   export type AsObject = {
     typeIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1454,6 +2091,11 @@ export class GetContextTypeRequest extends jspb.Message {
   getTypeVersion(): string;
   setTypeVersion(value: string): GetContextTypeRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextTypeRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextTypeRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextTypeRequest): GetContextTypeRequest.AsObject;
@@ -1466,6 +2108,7 @@ export namespace GetContextTypeRequest {
   export type AsObject = {
     typeName: string,
     typeVersion: string,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1495,6 +2138,11 @@ export class GetContextTypesByIDRequest extends jspb.Message {
   clearTypeIdsList(): GetContextTypesByIDRequest;
   addTypeIds(value: number, index?: number): GetContextTypesByIDRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextTypesByIDRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextTypesByIDRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextTypesByIDRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextTypesByIDRequest): GetContextTypesByIDRequest.AsObject;
@@ -1506,6 +2154,7 @@ export class GetContextTypesByIDRequest extends jspb.Message {
 export namespace GetContextTypesByIDRequest {
   export type AsObject = {
     typeIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1535,6 +2184,11 @@ export class GetContextsRequest extends jspb.Message {
   hasOptions(): boolean;
   clearOptions(): GetContextsRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextsRequest): GetContextsRequest.AsObject;
@@ -1546,6 +2200,7 @@ export class GetContextsRequest extends jspb.Message {
 export namespace GetContextsRequest {
   export type AsObject = {
     options?: ml_metadata_proto_metadata_store_pb.ListOperationOptions.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1585,6 +2240,11 @@ export class GetContextsByTypeRequest extends jspb.Message {
   getTypeVersion(): string;
   setTypeVersion(value: string): GetContextsByTypeRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextsByTypeRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextsByTypeRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextsByTypeRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextsByTypeRequest): GetContextsByTypeRequest.AsObject;
@@ -1598,6 +2258,7 @@ export namespace GetContextsByTypeRequest {
     typeName: string,
     options?: ml_metadata_proto_metadata_store_pb.ListOperationOptions.AsObject,
     typeVersion: string,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1635,6 +2296,11 @@ export class GetContextByTypeAndNameRequest extends jspb.Message {
   getContextName(): string;
   setContextName(value: string): GetContextByTypeAndNameRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextByTypeAndNameRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextByTypeAndNameRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextByTypeAndNameRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextByTypeAndNameRequest): GetContextByTypeAndNameRequest.AsObject;
@@ -1648,6 +2314,7 @@ export namespace GetContextByTypeAndNameRequest {
     typeName: string,
     typeVersion: string,
     contextName: string,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1677,6 +2344,11 @@ export class GetContextsByIDRequest extends jspb.Message {
   clearContextIdsList(): GetContextsByIDRequest;
   addContextIds(value: number, index?: number): GetContextsByIDRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextsByIDRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextsByIDRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextsByIDRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextsByIDRequest): GetContextsByIDRequest.AsObject;
@@ -1688,6 +2360,7 @@ export class GetContextsByIDRequest extends jspb.Message {
 export namespace GetContextsByIDRequest {
   export type AsObject = {
     contextIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1715,6 +2388,11 @@ export class GetContextsByArtifactRequest extends jspb.Message {
   getArtifactId(): number;
   setArtifactId(value: number): GetContextsByArtifactRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextsByArtifactRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextsByArtifactRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextsByArtifactRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextsByArtifactRequest): GetContextsByArtifactRequest.AsObject;
@@ -1726,6 +2404,7 @@ export class GetContextsByArtifactRequest extends jspb.Message {
 export namespace GetContextsByArtifactRequest {
   export type AsObject = {
     artifactId: number,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1753,6 +2432,11 @@ export class GetContextsByExecutionRequest extends jspb.Message {
   getExecutionId(): number;
   setExecutionId(value: number): GetContextsByExecutionRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetContextsByExecutionRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetContextsByExecutionRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetContextsByExecutionRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetContextsByExecutionRequest): GetContextsByExecutionRequest.AsObject;
@@ -1764,6 +2448,7 @@ export class GetContextsByExecutionRequest extends jspb.Message {
 export namespace GetContextsByExecutionRequest {
   export type AsObject = {
     executionId: number,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1791,6 +2476,11 @@ export class GetParentContextsByContextRequest extends jspb.Message {
   getContextId(): number;
   setContextId(value: number): GetParentContextsByContextRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetParentContextsByContextRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetParentContextsByContextRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetParentContextsByContextRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetParentContextsByContextRequest): GetParentContextsByContextRequest.AsObject;
@@ -1802,6 +2492,7 @@ export class GetParentContextsByContextRequest extends jspb.Message {
 export namespace GetParentContextsByContextRequest {
   export type AsObject = {
     contextId: number,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1829,6 +2520,11 @@ export class GetChildrenContextsByContextRequest extends jspb.Message {
   getContextId(): number;
   setContextId(value: number): GetChildrenContextsByContextRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetChildrenContextsByContextRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetChildrenContextsByContextRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetChildrenContextsByContextRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetChildrenContextsByContextRequest): GetChildrenContextsByContextRequest.AsObject;
@@ -1840,6 +2536,7 @@ export class GetChildrenContextsByContextRequest extends jspb.Message {
 export namespace GetChildrenContextsByContextRequest {
   export type AsObject = {
     contextId: number,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1863,6 +2560,136 @@ export namespace GetChildrenContextsByContextResponse {
   }
 }
 
+export class GetParentContextsByContextsRequest extends jspb.Message {
+  getContextIdsList(): Array<number>;
+  setContextIdsList(value: Array<number>): GetParentContextsByContextsRequest;
+  clearContextIdsList(): GetParentContextsByContextsRequest;
+  addContextIds(value: number, index?: number): GetParentContextsByContextsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetParentContextsByContextsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetParentContextsByContextsRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetParentContextsByContextsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetParentContextsByContextsRequest): GetParentContextsByContextsRequest.AsObject;
+  static serializeBinaryToWriter(message: GetParentContextsByContextsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetParentContextsByContextsRequest;
+  static deserializeBinaryFromReader(message: GetParentContextsByContextsRequest, reader: jspb.BinaryReader): GetParentContextsByContextsRequest;
+}
+
+export namespace GetParentContextsByContextsRequest {
+  export type AsObject = {
+    contextIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetParentContextsByContextsResponse extends jspb.Message {
+  getContextsMap(): jspb.Map<number, GetParentContextsByContextsResponse.ParentContextsPerChild>;
+  clearContextsMap(): GetParentContextsByContextsResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetParentContextsByContextsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetParentContextsByContextsResponse): GetParentContextsByContextsResponse.AsObject;
+  static serializeBinaryToWriter(message: GetParentContextsByContextsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetParentContextsByContextsResponse;
+  static deserializeBinaryFromReader(message: GetParentContextsByContextsResponse, reader: jspb.BinaryReader): GetParentContextsByContextsResponse;
+}
+
+export namespace GetParentContextsByContextsResponse {
+  export type AsObject = {
+    contextsMap: Array<[number, GetParentContextsByContextsResponse.ParentContextsPerChild.AsObject]>,
+  }
+
+  export class ParentContextsPerChild extends jspb.Message {
+    getParentContextsList(): Array<ml_metadata_proto_metadata_store_pb.Context>;
+    setParentContextsList(value: Array<ml_metadata_proto_metadata_store_pb.Context>): ParentContextsPerChild;
+    clearParentContextsList(): ParentContextsPerChild;
+    addParentContexts(value?: ml_metadata_proto_metadata_store_pb.Context, index?: number): ml_metadata_proto_metadata_store_pb.Context;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ParentContextsPerChild.AsObject;
+    static toObject(includeInstance: boolean, msg: ParentContextsPerChild): ParentContextsPerChild.AsObject;
+    static serializeBinaryToWriter(message: ParentContextsPerChild, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ParentContextsPerChild;
+    static deserializeBinaryFromReader(message: ParentContextsPerChild, reader: jspb.BinaryReader): ParentContextsPerChild;
+  }
+
+  export namespace ParentContextsPerChild {
+    export type AsObject = {
+      parentContextsList: Array<ml_metadata_proto_metadata_store_pb.Context.AsObject>,
+    }
+  }
+
+}
+
+export class GetChildrenContextsByContextsRequest extends jspb.Message {
+  getContextIdsList(): Array<number>;
+  setContextIdsList(value: Array<number>): GetChildrenContextsByContextsRequest;
+  clearContextIdsList(): GetChildrenContextsByContextsRequest;
+  addContextIds(value: number, index?: number): GetChildrenContextsByContextsRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetChildrenContextsByContextsRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetChildrenContextsByContextsRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetChildrenContextsByContextsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetChildrenContextsByContextsRequest): GetChildrenContextsByContextsRequest.AsObject;
+  static serializeBinaryToWriter(message: GetChildrenContextsByContextsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetChildrenContextsByContextsRequest;
+  static deserializeBinaryFromReader(message: GetChildrenContextsByContextsRequest, reader: jspb.BinaryReader): GetChildrenContextsByContextsRequest;
+}
+
+export namespace GetChildrenContextsByContextsRequest {
+  export type AsObject = {
+    contextIdsList: Array<number>,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetChildrenContextsByContextsResponse extends jspb.Message {
+  getContextsMap(): jspb.Map<number, GetChildrenContextsByContextsResponse.ChildrenContextsPerParent>;
+  clearContextsMap(): GetChildrenContextsByContextsResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetChildrenContextsByContextsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetChildrenContextsByContextsResponse): GetChildrenContextsByContextsResponse.AsObject;
+  static serializeBinaryToWriter(message: GetChildrenContextsByContextsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetChildrenContextsByContextsResponse;
+  static deserializeBinaryFromReader(message: GetChildrenContextsByContextsResponse, reader: jspb.BinaryReader): GetChildrenContextsByContextsResponse;
+}
+
+export namespace GetChildrenContextsByContextsResponse {
+  export type AsObject = {
+    contextsMap: Array<[number, GetChildrenContextsByContextsResponse.ChildrenContextsPerParent.AsObject]>,
+  }
+
+  export class ChildrenContextsPerParent extends jspb.Message {
+    getChildrenContextsList(): Array<ml_metadata_proto_metadata_store_pb.Context>;
+    setChildrenContextsList(value: Array<ml_metadata_proto_metadata_store_pb.Context>): ChildrenContextsPerParent;
+    clearChildrenContextsList(): ChildrenContextsPerParent;
+    addChildrenContexts(value?: ml_metadata_proto_metadata_store_pb.Context, index?: number): ml_metadata_proto_metadata_store_pb.Context;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ChildrenContextsPerParent.AsObject;
+    static toObject(includeInstance: boolean, msg: ChildrenContextsPerParent): ChildrenContextsPerParent.AsObject;
+    static serializeBinaryToWriter(message: ChildrenContextsPerParent, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ChildrenContextsPerParent;
+    static deserializeBinaryFromReader(message: ChildrenContextsPerParent, reader: jspb.BinaryReader): ChildrenContextsPerParent;
+  }
+
+  export namespace ChildrenContextsPerParent {
+    export type AsObject = {
+      childrenContextsList: Array<ml_metadata_proto_metadata_store_pb.Context.AsObject>,
+    }
+  }
+
+}
+
 export class GetArtifactsByContextRequest extends jspb.Message {
   getContextId(): number;
   setContextId(value: number): GetArtifactsByContextRequest;
@@ -1871,6 +2698,11 @@ export class GetArtifactsByContextRequest extends jspb.Message {
   setOptions(value?: ml_metadata_proto_metadata_store_pb.ListOperationOptions): GetArtifactsByContextRequest;
   hasOptions(): boolean;
   clearOptions(): GetArtifactsByContextRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetArtifactsByContextRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetArtifactsByContextRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetArtifactsByContextRequest.AsObject;
@@ -1884,6 +2716,7 @@ export namespace GetArtifactsByContextRequest {
   export type AsObject = {
     contextId: number,
     options?: ml_metadata_proto_metadata_store_pb.ListOperationOptions.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1920,6 +2753,11 @@ export class GetExecutionsByContextRequest extends jspb.Message {
   hasOptions(): boolean;
   clearOptions(): GetExecutionsByContextRequest;
 
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionsByContextRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionsByContextRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionsByContextRequest.AsObject;
   static toObject(includeInstance: boolean, msg: GetExecutionsByContextRequest): GetExecutionsByContextRequest.AsObject;
@@ -1932,6 +2770,7 @@ export namespace GetExecutionsByContextRequest {
   export type AsObject = {
     contextId: number,
     options?: ml_metadata_proto_metadata_store_pb.ListOperationOptions.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
   }
 }
 
@@ -1943,6 +2782,11 @@ export class GetExecutionsByContextResponse extends jspb.Message {
 
   getNextPageToken(): string;
   setNextPageToken(value: string): GetExecutionsByContextResponse;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetExecutionsByContextResponse;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetExecutionsByContextResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetExecutionsByContextResponse.AsObject;
@@ -1956,6 +2800,105 @@ export namespace GetExecutionsByContextResponse {
   export type AsObject = {
     executionsList: Array<ml_metadata_proto_metadata_store_pb.Execution.AsObject>,
     nextPageToken: string,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetLineageGraphRequest extends jspb.Message {
+  getOptions(): ml_metadata_proto_metadata_store_pb.LineageGraphQueryOptions | undefined;
+  setOptions(value?: ml_metadata_proto_metadata_store_pb.LineageGraphQueryOptions): GetLineageGraphRequest;
+  hasOptions(): boolean;
+  clearOptions(): GetLineageGraphRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetLineageGraphRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetLineageGraphRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetLineageGraphRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetLineageGraphRequest): GetLineageGraphRequest.AsObject;
+  static serializeBinaryToWriter(message: GetLineageGraphRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetLineageGraphRequest;
+  static deserializeBinaryFromReader(message: GetLineageGraphRequest, reader: jspb.BinaryReader): GetLineageGraphRequest;
+}
+
+export namespace GetLineageGraphRequest {
+  export type AsObject = {
+    options?: ml_metadata_proto_metadata_store_pb.LineageGraphQueryOptions.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetLineageGraphResponse extends jspb.Message {
+  getSubgraph(): ml_metadata_proto_metadata_store_pb.LineageGraph | undefined;
+  setSubgraph(value?: ml_metadata_proto_metadata_store_pb.LineageGraph): GetLineageGraphResponse;
+  hasSubgraph(): boolean;
+  clearSubgraph(): GetLineageGraphResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetLineageGraphResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetLineageGraphResponse): GetLineageGraphResponse.AsObject;
+  static serializeBinaryToWriter(message: GetLineageGraphResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetLineageGraphResponse;
+  static deserializeBinaryFromReader(message: GetLineageGraphResponse, reader: jspb.BinaryReader): GetLineageGraphResponse;
+}
+
+export namespace GetLineageGraphResponse {
+  export type AsObject = {
+    subgraph?: ml_metadata_proto_metadata_store_pb.LineageGraph.AsObject,
+  }
+}
+
+export class GetLineageSubgraphRequest extends jspb.Message {
+  getLineageSubgraphQueryOptions(): ml_metadata_proto_metadata_store_pb.LineageSubgraphQueryOptions | undefined;
+  setLineageSubgraphQueryOptions(value?: ml_metadata_proto_metadata_store_pb.LineageSubgraphQueryOptions): GetLineageSubgraphRequest;
+  hasLineageSubgraphQueryOptions(): boolean;
+  clearLineageSubgraphQueryOptions(): GetLineageSubgraphRequest;
+
+  getReadMask(): google_protobuf_field_mask_pb.FieldMask | undefined;
+  setReadMask(value?: google_protobuf_field_mask_pb.FieldMask): GetLineageSubgraphRequest;
+  hasReadMask(): boolean;
+  clearReadMask(): GetLineageSubgraphRequest;
+
+  getTransactionOptions(): ml_metadata_proto_metadata_store_pb.TransactionOptions | undefined;
+  setTransactionOptions(value?: ml_metadata_proto_metadata_store_pb.TransactionOptions): GetLineageSubgraphRequest;
+  hasTransactionOptions(): boolean;
+  clearTransactionOptions(): GetLineageSubgraphRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetLineageSubgraphRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetLineageSubgraphRequest): GetLineageSubgraphRequest.AsObject;
+  static serializeBinaryToWriter(message: GetLineageSubgraphRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetLineageSubgraphRequest;
+  static deserializeBinaryFromReader(message: GetLineageSubgraphRequest, reader: jspb.BinaryReader): GetLineageSubgraphRequest;
+}
+
+export namespace GetLineageSubgraphRequest {
+  export type AsObject = {
+    lineageSubgraphQueryOptions?: ml_metadata_proto_metadata_store_pb.LineageSubgraphQueryOptions.AsObject,
+    readMask?: google_protobuf_field_mask_pb.FieldMask.AsObject,
+    transactionOptions?: ml_metadata_proto_metadata_store_pb.TransactionOptions.AsObject,
+  }
+}
+
+export class GetLineageSubgraphResponse extends jspb.Message {
+  getLineageSubgraph(): ml_metadata_proto_metadata_store_pb.LineageGraph | undefined;
+  setLineageSubgraph(value?: ml_metadata_proto_metadata_store_pb.LineageGraph): GetLineageSubgraphResponse;
+  hasLineageSubgraph(): boolean;
+  clearLineageSubgraph(): GetLineageSubgraphResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetLineageSubgraphResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetLineageSubgraphResponse): GetLineageSubgraphResponse.AsObject;
+  static serializeBinaryToWriter(message: GetLineageSubgraphResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetLineageSubgraphResponse;
+  static deserializeBinaryFromReader(message: GetLineageSubgraphResponse, reader: jspb.BinaryReader): GetLineageSubgraphResponse;
+}
+
+export namespace GetLineageSubgraphResponse {
+  export type AsObject = {
+    lineageSubgraph?: ml_metadata_proto_metadata_store_pb.LineageGraph.AsObject,
   }
 }
 

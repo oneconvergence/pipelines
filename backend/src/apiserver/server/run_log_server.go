@@ -22,11 +22,10 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
-	api "github.com/kubeflow/pipelines/backend/api/go_client"
+	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 )
 
-// These are valid conditions of a ScheduledWorkflow.
 const (
 	RunKey  = "run_id"
 	NodeKey = "node_id"
@@ -40,7 +39,7 @@ type RunLogServer struct {
 
 // Log streaming endpoint
 // This endpoint is not exposed through grpc endpoint, since grpc-gateway cannot handle native HTTP content streaming.
-func (s *RunLogServer) ReadRunLog(w http.ResponseWriter, r *http.Request) {
+func (s *RunLogServer) ReadRunLogV1(w http.ResponseWriter, r *http.Request) {
 	glog.Infof("Read run log called")
 
 	vars := mux.Vars(r)
@@ -72,7 +71,7 @@ func (s *RunLogServer) ReadRunLog(w http.ResponseWriter, r *http.Request) {
 func (s *RunLogServer) writeErrorToResponse(w http.ResponseWriter, code int, err error) {
 	glog.Errorf("Failed to read run log. Error: %+v", err)
 	w.WriteHeader(code)
-	errorResponse := api.Error{ErrorMessage: err.Error(), ErrorDetails: fmt.Sprintf("%+v", err)}
+	errorResponse := &api.Error{ErrorMessage: err.Error(), ErrorDetails: fmt.Sprintf("%+v", err)}
 	errBytes, err := json.Marshal(errorResponse)
 	if err != nil {
 		w.Write([]byte("Error reading run log"))

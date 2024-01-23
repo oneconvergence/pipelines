@@ -33,10 +33,11 @@ import { ListRequest } from '../lib/Apis';
 import { classes, stylesheet } from 'typestyle';
 import { fonts, fontsize, dimension, commonCss, color, padding, zIndex } from '../Css';
 import { logger } from '../lib/Utils';
-import { ApiFilter, PredicateOp } from '../apis/filter/api';
 import { debounce } from 'lodash';
 import { InputAdornment } from '@material-ui/core';
 import { CustomTableRow } from './CustomTableRow';
+import { V2beta1Filter, V2beta1PredicateOperation } from 'src/apisv2beta1/filter';
+import { ApiFilter, PredicateOp } from 'src/apis/filter';
 
 export enum ExpandState {
   COLLAPSED,
@@ -153,6 +154,7 @@ export const css = stylesheet({
       },
       '&:hover a': {
         color: color.linkLight,
+        cursor: 'pointer',
       },
     },
     borderBottom: '1px solid #ddd',
@@ -188,6 +190,9 @@ interface CustomTableProps {
   getExpandComponent?: (index: number) => React.ReactNode;
   initialSortColumn?: string;
   initialSortOrder?: 'asc' | 'desc';
+  initialFilterString?: string;
+  isCalledByV1?: boolean;
+  setFilterString?: (filterString: string) => void;
   noFilterBox?: boolean;
   reload: (request: ListRequest) => Promise<string>;
   rows: Row[];
@@ -195,6 +200,7 @@ interface CustomTableProps {
   toggleExpansion?: (rowId: number) => void;
   updateSelection?: (selectedIds: string[]) => void;
   useRadioButtons?: boolean;
+  disableAdditionalSelection?: boolean;
 }
 
 interface CustomTableState {
@@ -222,8 +228,13 @@ export default class CustomTable extends React.Component<CustomTableProps, Custo
 
     this.state = {
       currentPage: 0,
-      filterString: '',
-      filterStringEncoded: '',
+      filterString: this.props.initialFilterString || '',
+      filterStringEncoded:
+        this.props.initialFilterString && this.props.isCalledByV1
+          ? this._createAndEncodeFilterV1(this.props.initialFilterString)
+          : this.props.initialFilterString
+          ? this._createAndEncodeFilterV2(this.props.initialFilterString)
+          : '',
       isBusy: false,
       maxPageIndex: Number.MAX_SAFE_INTEGER,
       pageSize: 10,
@@ -330,6 +341,7 @@ export default class CustomTable extends React.Component<CustomTableProps, Custo
             onSelectAll: this.handleSelectAllClick.bind(this),
             showExpandButton: !!this.props.getExpandComponent,
             useRadioButtons: this.props.useRadioButtons,
+            disableAdditionalSelection: this.props.disableAdditionalSelection,
           })}
           {this.props.columns.map((col, i) => {
             const isColumnSortable = !!this.props.columns[i].sortKey;
@@ -419,6 +431,7 @@ export default class CustomTable extends React.Component<CustomTableProps, Custo
                     onExpand: e => this._expandButtonToggled(e, i),
                     showExpandButton: !!this.props.getExpandComponent,
                     useRadioButtons: this.props.useRadioButtons,
+                    disableAdditionalSelection: this.props.disableAdditionalSelection,
                   })}
                   <CustomTableRow row={row} columns={this.props.columns} />
                 </div>
@@ -501,6 +514,9 @@ export default class CustomTable extends React.Component<CustomTableProps, Custo
 
   public handleFilterChange = (event: any) => {
     const value = event.target.value;
+    if (this.props.setFilterString) {
+      this.props.setFilterString(value || '');
+    }
     // Set state here so that the UI will be updated even if the actual filter request is debounced
     this.setStateSafe(
       { filterString: value } as any,
@@ -510,18 +526,37 @@ export default class CustomTable extends React.Component<CustomTableProps, Custo
 
   // Exposed for testing
   protected async _requestFilter(filterString?: string): Promise<void> {
-    const filterStringEncoded = filterString ? this._createAndEncodeFilter(filterString) : '';
+    const filterStringEncoded =
+      filterString && this.props.isCalledByV1
+        ? this._createAndEncodeFilterV1(filterString)
+        : filterString
+        ? this._createAndEncodeFilterV2(filterString)
+        : '';
     this.setStateSafe({ filterStringEncoded });
     this._resetToFirstPage(await this.reload({ filter: filterStringEncoded }));
   }
 
-  private _createAndEncodeFilter(filterString: string): string {
+  private _createAndEncodeFilterV1(filterString: string): string {
     const filter: ApiFilter = {
       predicates: [
         {
           // TODO: remove this hardcoding once more sophisticated filtering is supported
           key: 'name',
           op: PredicateOp.ISSUBSTRING,
+          string_value: filterString,
+        },
+      ],
+    };
+    return encodeURIComponent(JSON.stringify(filter));
+  }
+
+  private _createAndEncodeFilterV2(filterString: string): string {
+    const filter: V2beta1Filter = {
+      predicates: [
+        {
+          // TODO: remove this hardcoding once more sophisticated filtering is supported
+          key: 'name',
+          operation: V2beta1PredicateOperation.ISSUBSTRING,
           string_value: filterString,
         },
       ],
@@ -613,6 +648,7 @@ interface SelectionSectionCommonProps {
 interface HeaderRowSelectionSectionProps extends SelectionSectionCommonProps {
   indeterminate?: boolean;
   onSelectAll: React.ChangeEventHandler;
+  disableAdditionalSelection?: boolean;
 }
 const HeaderRowSelectionSection: React.FC<HeaderRowSelectionSectionProps> = ({
   disableSelection,
@@ -621,6 +657,7 @@ const HeaderRowSelectionSection: React.FC<HeaderRowSelectionSectionProps> = ({
   onSelectAll,
   showExpandButton,
   useRadioButtons,
+  disableAdditionalSelection,
 }) => {
   const nonEmpty = disableSelection !== true || showExpandButton;
   if (!nonEmpty) {
@@ -636,6 +673,7 @@ const HeaderRowSelectionSection: React.FC<HeaderRowSelectionSectionProps> = ({
           color='primary'
           checked={isSelected}
           onChange={onSelectAll}
+          disabled={indeterminate && disableAdditionalSelection}
         />
       )}
       {/* If using radio buttons */}
@@ -651,6 +689,7 @@ const HeaderRowSelectionSection: React.FC<HeaderRowSelectionSectionProps> = ({
 interface BodyRowSelectionSectionProps extends SelectionSectionCommonProps {
   expandState?: ExpandState;
   onExpand: React.MouseEventHandler;
+  disableAdditionalSelection?: boolean;
 }
 const BodyRowSelectionSection: React.FC<BodyRowSelectionSectionProps> = ({
   disableSelection,
@@ -659,6 +698,7 @@ const BodyRowSelectionSection: React.FC<BodyRowSelectionSectionProps> = ({
   onExpand,
   showExpandButton,
   useRadioButtons,
+  disableAdditionalSelection,
 }) => (
   <>
     {/* Expansion toggle button */}
@@ -666,7 +706,11 @@ const BodyRowSelectionSection: React.FC<BodyRowSelectionSectionProps> = ({
       <div className={classes(css.cell, css.selectionToggle)}>
         {/* If using checkboxes */}
         {disableSelection !== true && useRadioButtons !== true && (
-          <Checkbox color='primary' checked={isSelected} />
+          <Checkbox
+            color='primary'
+            checked={isSelected}
+            disabled={!isSelected && disableAdditionalSelection}
+          />
         )}
         {/* If using radio buttons */}
         {disableSelection !== true && useRadioButtons && (

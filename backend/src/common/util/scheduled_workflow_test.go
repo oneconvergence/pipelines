@@ -15,6 +15,7 @@
 package util
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -62,21 +63,21 @@ func TestScheduledWorkflow_Getters(t *testing.T) {
 	assert.Equal(t, (*int64)(nil), workflow.PeriodicScheduleStartTimeInSecOrNull())
 	assert.Equal(t, (*int64)(nil), workflow.PeriodicScheduleEndTimeInSecOrNull())
 	assert.Equal(t, int64(0), workflow.IntervalSecondOr0())
-
 }
 
 func TestScheduledWorkflow_ConditionSummary(t *testing.T) {
 	// Base case
 	workflow := NewScheduledWorkflow(&swfapi.ScheduledWorkflow{
 		Status: swfapi.ScheduledWorkflowStatus{
-			Conditions: []swfapi.ScheduledWorkflowCondition{{
-				Type:               swfapi.ScheduledWorkflowEnabled,
-				Status:             core.ConditionTrue,
-				LastProbeTime:      metav1.NewTime(time.Unix(10, 0).UTC()),
-				LastTransitionTime: metav1.NewTime(time.Unix(20, 0).UTC()),
-				Reason:             string(swfapi.ScheduledWorkflowEnabled),
-				Message:            "The schedule is enabled.",
-			},
+			Conditions: []swfapi.ScheduledWorkflowCondition{
+				{
+					Type:               swfapi.ScheduledWorkflowEnabled,
+					Status:             core.ConditionTrue,
+					LastProbeTime:      metav1.NewTime(time.Unix(10, 0).UTC()),
+					LastTransitionTime: metav1.NewTime(time.Unix(20, 0).UTC()),
+					Reason:             string(swfapi.ScheduledWorkflowEnabled),
+					Message:            "The schedule is enabled.",
+				},
 			},
 		},
 	})
@@ -85,21 +86,22 @@ func TestScheduledWorkflow_ConditionSummary(t *testing.T) {
 	// Multiple conditions
 	workflow = NewScheduledWorkflow(&swfapi.ScheduledWorkflow{
 		Status: swfapi.ScheduledWorkflowStatus{
-			Conditions: []swfapi.ScheduledWorkflowCondition{{
-				Type:               swfapi.ScheduledWorkflowEnabled,
-				Status:             core.ConditionTrue,
-				LastProbeTime:      metav1.NewTime(time.Unix(10, 0).UTC()),
-				LastTransitionTime: metav1.NewTime(time.Unix(20, 0).UTC()),
-				Reason:             string(swfapi.ScheduledWorkflowEnabled),
-				Message:            "The schedule is enabled.",
-			}, {
-				Type:               swfapi.ScheduledWorkflowDisabled,
-				Status:             core.ConditionTrue,
-				LastProbeTime:      metav1.NewTime(time.Unix(10, 0).UTC()),
-				LastTransitionTime: metav1.NewTime(time.Unix(20, 0).UTC()),
-				Reason:             string(swfapi.ScheduledWorkflowEnabled),
-				Message:            "The schedule is enabled.",
-			},
+			Conditions: []swfapi.ScheduledWorkflowCondition{
+				{
+					Type:               swfapi.ScheduledWorkflowEnabled,
+					Status:             core.ConditionTrue,
+					LastProbeTime:      metav1.NewTime(time.Unix(10, 0).UTC()),
+					LastTransitionTime: metav1.NewTime(time.Unix(20, 0).UTC()),
+					Reason:             string(swfapi.ScheduledWorkflowEnabled),
+					Message:            "The schedule is enabled.",
+				}, {
+					Type:               swfapi.ScheduledWorkflowDisabled,
+					Status:             core.ConditionTrue,
+					LastProbeTime:      metav1.NewTime(time.Unix(10, 0).UTC()),
+					LastTransitionTime: metav1.NewTime(time.Unix(20, 0).UTC()),
+					Reason:             string(swfapi.ScheduledWorkflowEnabled),
+					Message:            "The schedule is enabled.",
+				},
 			},
 		},
 	})
@@ -116,41 +118,87 @@ func TestScheduledWorkflow_ConditionSummary(t *testing.T) {
 
 func TestScheduledWorkflow_ParametersAsString(t *testing.T) {
 	// Base case
-	workflow := NewScheduledWorkflow(&swfapi.ScheduledWorkflow{
+	spec, err := json.Marshal(workflowapi.WorkflowSpec{
+		ServiceAccountName: "SERVICE_ACCOUNT",
+		Arguments: workflowapi.Arguments{
+			Parameters: []workflowapi.Parameter{
+				{Name: "PARAM3", Value: workflowapi.AnyStringPtr("VALUE3")},
+				{Name: "PARAM4", Value: workflowapi.AnyStringPtr("VALUE4")},
+			},
+		},
+	})
+	assert.Nil(t, err)
+
+	// v2 runtime config's string parameter
+	workflowV2 := NewScheduledWorkflow(&swfapi.ScheduledWorkflow{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kubeflow.org/v2beta1",
+			Kind:       "ScheduledWorkflow",
+		},
 		Spec: swfapi.ScheduledWorkflowSpec{
 			Workflow: &swfapi.WorkflowResource{
 				Parameters: []swfapi.Parameter{
-					{Name: "PARAM1", Value: "NEW_VALUE1"},
-					{Name: "PARAM2", Value: "NEW_VALUE2"},
+					{Name: "STRING_PARAM1", Value: "\"ONE\""},
 				},
-				Spec: workflowapi.WorkflowSpec{
-					ServiceAccountName: "SERVICE_ACCOUNT",
-					Arguments: workflowapi.Arguments{
-						Parameters: []workflowapi.Parameter{
-							{Name: "PARAM3", Value: workflowapi.AnyStringPtr("VALUE3")},
-							{Name: "PARAM4", Value: workflowapi.AnyStringPtr("VALUE4")},
-						},
-					},
-				},
+				Spec: string(spec),
 			},
 		},
+	})
+	resultV2, err := workflowV2.ParametersAsString()
+	assert.Nil(t, err)
+	assert.Equal(t,
+		"{\"STRING_PARAM1\":\"ONE\"}",
+		resultV2)
+
+	// v2 runtime config's numeric parameter
+	workflowV2 = NewScheduledWorkflow(&swfapi.ScheduledWorkflow{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kubeflow.org/v2beta1",
+			Kind:       "ScheduledWorkflow",
+		},
+		Spec: swfapi.ScheduledWorkflowSpec{
+			Workflow: &swfapi.WorkflowResource{
+				Parameters: []swfapi.Parameter{
+					{Name: "NUMERIC_PARAM2", Value: "2"},
+				},
+				Spec: string(spec),
+			},
+		},
+	})
+	resultV2, err = workflowV2.ParametersAsString()
+	assert.Nil(t, err)
+	assert.Equal(t,
+		"{\"NUMERIC_PARAM2\":2}",
+		resultV2)
+
+	// v1 parameters
+	workflowV1 := NewScheduledWorkflow(&swfapi.ScheduledWorkflow{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kubeflow.org/v1beta1",
+			Kind:       "ScheduledWorkflow",
+		},
+		Spec: swfapi.ScheduledWorkflowSpec{
+			Workflow: &swfapi.WorkflowResource{
+				Parameters: []swfapi.Parameter{
+					{Name: "PARAM1", Value: "one"},
+					{Name: "PARAM2", Value: "2"},
+				},
+				Spec: string(spec),
+			},
+		},
+	})
+	resultV1, err := workflowV1.ParametersAsString()
+	assert.Nil(t, err)
+	assert.Equal(t,
+		`[{"name":"PARAM1","value":"one"},{"name":"PARAM2","value":"2"}]`,
+		resultV1)
+	// No params
+	workflow := NewScheduledWorkflow(&swfapi.ScheduledWorkflow{
+		Spec: swfapi.ScheduledWorkflowSpec{},
 	})
 
 	result, err := workflow.ParametersAsString()
 	assert.Nil(t, err)
 
-	assert.Equal(t,
-		"[{\"name\":\"PARAM1\",\"value\":\"NEW_VALUE1\"},{\"name\":\"PARAM2\",\"value\":\"NEW_VALUE2\"}]",
-		result)
-
-	// No params
-	workflow = NewScheduledWorkflow(&swfapi.ScheduledWorkflow{
-		Spec: swfapi.ScheduledWorkflowSpec{},
-	})
-
-	result, err = workflow.ParametersAsString()
-	assert.Nil(t, err)
-
-	assert.Equal(t, "[]", result)
-
+	assert.Equal(t, "", result)
 }
