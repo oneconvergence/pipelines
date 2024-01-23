@@ -51,6 +51,8 @@ import PrivateAndSharedPipelines, {
 import RecurringRunDetailsRouter from 'src/pages/RecurringRunDetailsRouter';
 import SideNav from './SideNav';
 import Toolbar, { ToolbarProps } from './Toolbar';
+import ManageContributors from '../pages/ManageContributors';
+import NewContributor from '../pages/NewContributor';
 import { BuildInfoContext } from 'src/lib/BuildInfo';
 
 export type RouteConfig = {
@@ -123,6 +125,8 @@ export const RoutePage = {
   RECURRING_RUN_DETAILS: `/recurringrun/details/:${RouteParams.recurringRunId}`,
   START: '/start',
   FRONTEND_FEATURES: '/frontend_features',
+  MANAGE_CONTRIBUTORS: '/contributors',
+  NEW_CONTRIBUTOR: '/contributors/new',
 };
 
 export const RoutePageFactory = {
@@ -214,6 +218,8 @@ const Router: React.FC<RouterProps> = ({ configs }) => {
     { path: RoutePage.RUN_DETAILS_WITH_EXECUTION, Component: RunDetailsRouter },
     { path: RoutePage.COMPARE, Component: Compare },
     { path: RoutePage.FRONTEND_FEATURES, Component: FrontendFeatures },
+    { path: RoutePage.MANAGE_CONTRIBUTORS, Component: ManageContributors },
+    { path: RoutePage.NEW_CONTRIBUTOR, Component: NewContributor },
   ];
 
   if (!buildInfo?.apiServerMultiUser) {
@@ -284,7 +290,6 @@ class RoutedPage extends React.Component<{ route?: RouteConfig }, RouteComponent
   public render(): JSX.Element {
     this.childProps.toolbarProps = this.state.toolbarProps;
     const route = this.props.route;
-
     return (
       <div className={classes(commonCss.page)}>
         <Route render={({ ...props }) => <Toolbar {...this.state.toolbarProps} {...props} />} />

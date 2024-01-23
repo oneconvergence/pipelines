@@ -33,6 +33,8 @@ import { buildQuery } from './Utils';
 import { StoragePath, StorageService } from './WorkflowParser';
 
 const v1beta1Prefix = 'apis/v1beta1';
+const token = localStorage.getItem('token')
+const apiKey = 'Bearer ' + token
 const v2beta1Prefix = 'apis/v2beta1';
 
 export interface ListRequest {
@@ -118,6 +120,77 @@ export class Apis {
     return this._fetch(query);
   }
 
+    /**
+    * Get pod logs from DKube
+    */
+     public static async getPodLogsFromDkube(workflowName: string, nodeId: string, platform: string): Promise<string> {
+      const token = localStorage.getItem('token');
+      const init = {
+        headers:  {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/keyauth.api.v1+json',
+        'accept': 'application/json',
+        'authorization': token ? 'Bearer ' + token.toString() : ''
+        }
+      };
+      const path = '/dkube/pipeline/logs/' + workflowName + '/' + nodeId + '/main';
+      const logs = await this._fetch(path , undefined, undefined, init);
+      const data = logs.split('\n');
+      let res = '';
+      data.forEach(d => {
+        if(d.trim().length){
+          const log = d.trim().replace(/^(data:)/, '');
+          res = res + log + '\n';
+        }
+      });
+      return res;
+    }
+
+    /**
+    * Get onboarded users from DKube
+    */
+     public static async getOnboardedUsers(): Promise<any> {
+      const token = localStorage.getItem('token');
+      const init = {
+        headers:  {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/keyauth.api.v1+json',
+        'accept': 'application/json',
+        'authorization': token ? 'Bearer ' + token.toString() : ''
+        }
+      };
+      const path = '/dkube/v2/controller/groups/collection';
+      const res = await this._fetch(path , undefined, undefined, init);
+      const groups = JSON.parse(res).data
+      const myGroup = localStorage.getItem("group") || "default"
+      const group = groups.find((g: any) => g.group.name === myGroup)
+      let resp: any = []
+      const response = await this.listContributors()
+      const contributors = (response && response.bindings) || [];
+      group && group.users.forEach((element: any) => {
+        if(!contributors.find((c: any) => c.user.name === element.user.name))
+          resp.push({id:element.user.name,name: element.user.name, description: "Part of group " +group.group.name, created_at: element.user.created_at.start})
+      });
+      return resp;
+    }
+ 
+    /**
+     * Gets the  given DKube Job details
+     */
+    public static getDkubeJobInfo(id: string): Promise<any> {
+      const token = localStorage.getItem('token');
+      const init = {
+        headers:  {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/keyauth.api.v1+json',
+        'accept': 'application/json',
+        'authorization': token ? 'Bearer ' + token.toString() : ''
+        }
+      };
+      const path = '/dkube/v2/controller/jobs/uuid/' + id +'/';
+      return this._fetch(path, undefined, undefined, init);
+    }
+ 
   /**
    * Get pod info
    */
@@ -150,7 +223,7 @@ export class Apis {
   public static get experimentServiceApi(): ExperimentServiceApi {
     if (!this._experimentServiceApi) {
       this._experimentServiceApi = new ExperimentServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -173,7 +246,7 @@ export class Apis {
   public static get jobServiceApi(): JobServiceApi {
     if (!this._jobServiceApi) {
       this._jobServiceApi = new JobServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -195,7 +268,7 @@ export class Apis {
   public static get pipelineServiceApi(): PipelineServiceApi {
     if (!this._pipelineServiceApi) {
       this._pipelineServiceApi = new PipelineServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -239,7 +312,7 @@ export class Apis {
   public static get visualizationServiceApi(): VisualizationServiceApi {
     if (!this._visualizationServiceApi) {
       this._visualizationServiceApi = new VisualizationServiceApi(
-        { basePath: this.basePath },
+        { basePath: this.basePath, apiKey: apiKey },
         undefined,
         crossBrowserFetch,
       );
@@ -383,6 +456,12 @@ export class Apis {
     namespace?: string,
   ): Promise<ApiPipeline> {
     const fd = new FormData();
+    const project = JSON.parse(localStorage.getItem('activeProject') || '{}');
+
+    if (project && project["id"]) {
+      pipelineName = "[" + project["value"] + "] - " + pipelineName
+    }
+
     fd.append('uploadfile', pipelineData, pipelineData.name);
     let query = `name=${encodeURIComponent(pipelineName)}&description=${encodeURIComponent(
       pipelineDescription,
@@ -418,6 +497,44 @@ export class Apis {
         method: 'POST',
       },
     );
+  }
+  /**
+   * add new contributor
+   */
+  public static async addContributor(
+    body: any
+  ): Promise<any> {
+
+    return await this._fetch(
+      '/kfam/v1/bindings',
+      undefined,
+      undefined,
+      {
+        body: JSON.stringify(body),
+        cache: 'no-cache',
+        method: 'POST',
+      },
+    );
+  }
+
+  public static async deleteContributor(
+    body: any
+  ): Promise<any> {
+
+    return await this._fetch(
+      '/kfam/v1/bindings',
+      undefined,
+      undefined,
+      {
+        body: body,
+        method: 'DELETE',
+      },
+    );
+  }
+
+  public static async listContributors(): Promise<any> {
+    const owner = localStorage.getItem('user') || ''
+    return this._fetchAndParse("/kfam/v1/bindings?namespace="+owner);
   }
 
   public static async uploadPipelineV2(
@@ -519,7 +636,7 @@ export class Apis {
     query?: string,
     init?: RequestInit,
   ): Promise<string> {
-    init = Object.assign(init || {}, { credentials: 'same-origin' });
+    init = Object.assign(init || {}, { credentials: 'same-origin', headers: { 'Authorization': apiKey}});
     const response = await fetch((apisPrefix || '') + path + (query ? '?' + query : ''), init);
     const responseText = await response.text();
     if (response.ok) {
