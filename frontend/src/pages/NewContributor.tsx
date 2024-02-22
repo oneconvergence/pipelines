@@ -167,7 +167,7 @@ export class NewContributor extends Page<{ namespace?: string }, NewContributorS
                 emptyMessage='No contributor found.'
                 initialSortColumn={PipelineSortKeys.NAME}
                 selectionChanged={(selectedUser: any) =>
-                  this.setStateSafe({ unconfirmedSelectedUser: selectedUser.name })
+                  this.setStateSafe({ unconfirmedSelectedUser: selectedUser })
                 }
               />
             </DialogContent>
