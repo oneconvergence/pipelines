@@ -70,16 +70,19 @@ class PipelineList extends Page<{ namespace?: string }, PipelineListState> {
 
   public getInitialToolbarState(): ToolbarProps {
     const buttons = new Buttons(this.props, this.refresh.bind(this));
+    buttons.newPipelineVersion('Upload pipeline')
+      .refresh(this.refresh.bind(this))
+
+    if(this.props.namespace){
+      buttons.deletePipelinesAndPipelineVersions(
+        () => this.state.selectedIds,
+        () => this.state.selectedVersionIds,
+        (pipelineId, ids) => this._selectionChanged(pipelineId, ids),
+        false /* useCurrentResource */,
+      )
+    }
     return {
       actions: buttons
-        .newPipelineVersion('Upload pipeline')
-        .refresh(this.refresh.bind(this))
-        .deletePipelinesAndPipelineVersions(
-          () => this.state.selectedIds,
-          () => this.state.selectedVersionIds,
-          (pipelineId, ids) => this._selectionChanged(pipelineId, ids),
-          false /* useCurrentResource */,
-        )
         .getToolbarActionMap(),
       breadcrumbs: [],
       pageTitle: 'Pipelines',
