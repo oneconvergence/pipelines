@@ -146,10 +146,26 @@ export class Apis {
       return res;
     }
 
+    public static  getUserGroups(data:any,username:string) {
+      // Iterate through groups in data
+      for (const group of data) {
+          // Iterate through users in the group
+          for (const user of group.users) {
+              // Check if the user's name matches the provided username
+              if (user.user.name === username) {
+                  // Return the groups array for the matched user
+                  return user.user.groups;
+              }
+          }
+      }
+      // Return [] if user not found
+      return [];
+  }
     /**
     * Get onboarded users from DKube
     */
      public static async getOnboardedUsers(): Promise<any> {
+      const currentUser = localStorage.getItem('user') || ""
       const token = localStorage.getItem('token');
       const init = {
         headers:  {
@@ -162,15 +178,17 @@ export class Apis {
       const path = '/dkube/v2/controller/groups/collection';
       const res = await this._fetch(path , undefined, undefined, init);
       const groups = JSON.parse(res).data
-      const myGroup = localStorage.getItem("group") || "default"
-      const group = groups.find((g: any) => g.group.name === myGroup)
+      const myGroups = this.getUserGroups(groups, currentUser)
       let resp: any = []
       const response = await this.listContributors()
-      const contributors = (response && response.bindings) || [];
-      group && group.users.forEach((element: any) => {
-        if(!contributors.find((c: any) => c.user.name === element.user.name))
-          resp.push({id:element.user.name,name: element.user.name, description: "Part of group " +group.group.name, created_at: element.user.created_at.start})
-      });
+      const contributors = (response && response.bindings) || []
+      myGroups.forEach((myGroup: string) =>{
+        const group = groups.find((g: any) => g.group.name === myGroup)
+        group && group.users.forEach((element: any) => {
+          if(!contributors.find((c: any) => c.user.name === element.user.name) && !resp.find((c: any) => c.name === element.user.name))
+            resp.push({id:element.user.name,name: element.user.name, description: "Part of group " +group.group.name, created_at: element.user.created_at.start})
+        });
+      })
       return resp;
     }
  
