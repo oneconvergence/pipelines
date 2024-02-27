@@ -59,9 +59,6 @@ let registeredHandler: undefined | ((namespace: string) => void);
 function onNamespaceChanged(handler: (namespace: string) => void) {
   registeredHandler = handler;
 }
-interface CustomEvent extends Event {
-  data: string
-}
 export function init(): void {
   try {
     // Init method will invoke the callback with the event handler instance
