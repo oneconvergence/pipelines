@@ -51,7 +51,7 @@ import InputOutputTab, { getArtifactParamList } from 'src/components/tabs/InputO
 import { convertYamlToPlatformSpec, convertYamlToV2PipelineSpec } from 'src/lib/v2/WorkflowUtils';
 import { PlatformDeploymentConfig } from 'src/generated/pipeline_spec/pipeline_spec';
 import { getComponentSpec } from 'src/lib/v2/NodeUtils';
-
+import DKubeTab from "src/components/tabs/DKubeTab"
 export const LOGS_DETAILS = 'logs_details';
 export const LOGS_BANNER_MESSAGE = 'logs_banner_message';
 export const LOGS_BANNER_ADDITIONAL_INFO = 'logs_banner_additional_info';
@@ -168,7 +168,7 @@ function TaskNodeDetail({
   return (
     <div className={commonCss.page}>
       <MD2Tabs
-        tabs={['Input/Output', 'Task Details', 'Logs']}
+        tabs={['Input/Output', 'Task Details', 'Logs','DKube']}
         selectedTab={selectedTab}
         onSwitch={tab => setSelectedTab(tab)}
       />
@@ -205,6 +205,11 @@ function TaskNodeDetail({
                 <LogViewer logLines={(logsDetails || '').split(/[\r\n]+/)} />
               </div>
             )}
+          </div>
+        )}
+        {selectedTab === 3 && (
+          <div className={padding(20)}>
+            <DKubeTab execution={execution}/>
           </div>
         )}
       </div>
