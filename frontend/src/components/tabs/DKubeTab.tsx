@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Apis } from 'src/lib/Apis'; // Adjust the import path as needed
 import { logger } from 'src/lib/Utils'; // Adjust the import path as needed
-import { Execution } from 'src/third_party/mlmd';
 import { KfpExecutionProperties } from 'src/mlmd/MlmdUtils';
 import { commonCss } from 'src/Css';
 
@@ -31,9 +30,6 @@ const DKubeTab: React.FC<DKubeTabProps> = ({ execution }) => {
           const podName =
             customPropertiesMap.get(KfpExecutionProperties.POD_NAME)?.getStringValue() || '';
           const dkubeResponse = await Apis.getDkubeJobInfo(podName);
-          console.log('dkubeResponse', dkubeResponse);
-          // const dkubeJobInfo = JSON.parse(dkubeResponse);
-          // console.log("dkubeJobInfo",dkubeJobInfo)
           const obj = JSON.parse(dkubeResponse);
           const user = obj.data.parameters.generated.user;
           const runType = obj.data.parameters.class;
@@ -80,16 +76,12 @@ const DKubeTab: React.FC<DKubeTabProps> = ({ execution }) => {
     return <div>Loading...</div>;
   }
 
-  if (error) {
-    return <div>{error}</div>;
-  }
-
-  if (!dkubeData) {
+  if (error || !dkubeData) {
     return <div>No DKube job data available.</div>;
   }
 
   let url =
-    'https://192.168.200.131:32222/#/ds/jobs/runs/' +
+    '/#/ds/jobs/runs/' +
     dkubeData.runType +
     '/user/' +
     dkubeData.user +
