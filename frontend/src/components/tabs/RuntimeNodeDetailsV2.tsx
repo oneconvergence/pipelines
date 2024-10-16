@@ -168,13 +168,13 @@ function TaskNodeDetail({
   return (
     <div className={commonCss.page}>
       <MD2Tabs
-        tabs={['Input/Output', 'Task Details', 'Logs','DKube']}
+        tabs={['DKube', 'Input/Output', 'Task Details', 'Logs']}
         selectedTab={selectedTab}
         onSwitch={tab => setSelectedTab(tab)}
       />
       <div className={commonCss.page}>
         {/* Input/Output tab */}
-        {selectedTab === 0 &&
+        {selectedTab === 1 &&
           (() => {
             if (execution) {
               return <InputOutputTab execution={execution} namespace={namespace}></InputOutputTab>;
@@ -183,7 +183,7 @@ function TaskNodeDetail({
           })()}
 
         {/* Task Details tab */}
-        {selectedTab === 1 && (
+        {selectedTab === 2 && (
           <div className={padding(20)}>
             <DetailsTable title='Task Details' fields={getTaskDetailsFields(element, execution)} />
             <DetailsTable
@@ -193,7 +193,7 @@ function TaskNodeDetail({
           </div>
         )}
         {/* Logs tab */}
-        {selectedTab === 2 && (
+        {selectedTab === 3 && (
           <div className={commonCss.page}>
             {logsBannerMessage && (
               <React.Fragment>
@@ -207,7 +207,7 @@ function TaskNodeDetail({
             )}
           </div>
         )}
-        {selectedTab === 3 && (
+        {selectedTab === 0 && (
           <div className={padding(20)}>
             <DKubeTab execution={execution}/>
           </div>

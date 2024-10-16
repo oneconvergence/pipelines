@@ -79,7 +79,6 @@ const DKubeTab: React.FC<DKubeTabProps> = ({ execution }) => {
   if (error || !dkubeData) {
     return <div>No DKube job data available.</div>;
   }
-
   let url =
     '/#/ds/jobs/runs/' +
     dkubeData.runType +
@@ -90,7 +89,7 @@ const DKubeTab: React.FC<DKubeTabProps> = ({ execution }) => {
     '/' +
     dkubeData.jobid +
     '?tab=summary&iframe=true';
-  if (dkubeData.runType === 'serving') {
+  if (dkubeData.runType === 'inference') {
     url =
       '/#/ds/deployments/all/user/' +
       dkubeData.user +
