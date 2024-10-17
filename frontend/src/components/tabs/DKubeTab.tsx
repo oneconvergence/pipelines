@@ -24,7 +24,7 @@ const DKubeTab: React.FC<DKubeTabProps> = ({ execution }) => {
     const fetchDkubeJobInfo = async () => {
       try {
         setLoading(true);
-
+        setError('');
         if (execution) {
           const customPropertiesMap = execution.getCustomPropertiesMap();
           const podName =
@@ -76,7 +76,7 @@ const DKubeTab: React.FC<DKubeTabProps> = ({ execution }) => {
     return <div>Loading...</div>;
   }
 
-  if (error || !dkubeData) {
+  if (error || !dkubeData.user) {
     return <div>No DKube job data available.</div>;
   }
   let url =
